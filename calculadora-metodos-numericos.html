@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Métodos Numéricos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #13161e;
+    --surface2: #1a1e28;
+    --surface3: #222736;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --accent: #7c6af7;
+    --accent2: #a594f9;
+    --accent-soft: rgba(124,106,247,0.15);
+    --accent-soft2: rgba(124,106,247,0.08);
+    --green: #4ade80;
+    --green-soft: rgba(74,222,128,0.12);
+    --red: #f87171;
+    --red-soft: rgba(248,113,113,0.12);
+    --amber: #fbbf24;
+    --text: #e8eaf0;
+    --text2: #8b91a8;
+    --text3: #5a6075;
+    --mono: 'Space Mono', monospace;
+    --sans: 'Syne', sans-serif;
+    --radius: 10px;
+    --radius-lg: 16px;
+    --sidebar-w: 260px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── TOPBAR ── */
+  #topbar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 56px;
+    background: rgba(13,15,20,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 20px;
+    z-index: 100;
+  }
+
+  #hamburger {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border2);
+    background: var(--surface2);
+    transition: background 0.2s, border-color 0.2s;
+    flex-shrink: 0;
+  }
+  #hamburger:hover { background: var(--surface3); border-color: var(--accent); }
+  #hamburger span {
+    display: block; width: 18px; height: 1.5px;
+    background: var(--text); transition: all 0.25s;
+  }
+  #hamburger.open span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); }
+  #hamburger.open span:nth-child(2) { opacity: 0; }
+  #hamburger.open span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
+
+  .topbar-title {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--text);
+  }
+  .topbar-badge {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 0.08em;
+  }
+
+  /* ── LAYOUT ── */
+  #layout { display: flex; padding-top: 56px; min-height: 100vh; }
+
+  /* ── SIDEBAR ── */
+  #overlay {
+    display: none;
+    position: fixed;
+    inset: 56px 0 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 49;
+  }
+  #overlay.open { display: block; }
+
+  #sidebar {
+    position: fixed;
+    top: 56px; left: 0; bottom: 0;
+    width: var(--sidebar-w);
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    transform: translateX(-100%);
+    transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+    z-index: 50;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  #sidebar.open { transform: translateX(0); }
+
+  .sidebar-header {
+    padding: 16px 18px 10px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .category-label {
+    padding: 14px 18px 6px;
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text3);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .method-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 18px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text2);
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s, color 0.15s;
+    position: relative;
+  }
+  .method-item:hover { background: var(--surface2); color: var(--text); }
+  .method-item.active {
+    background: var(--accent-soft2);
+    color: var(--accent2);
+    border-left: 2px solid var(--accent);
+  }
+  .method-num {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 20px;
+    background: var(--surface3);
+    color: var(--text3);
+    flex-shrink: 0;
+  }
+  .method-item.active .method-num {
+    background: var(--accent-soft);
+    color: var(--accent2);
+  }
+
+  /* ── MAIN ── */
+  #main {
+    flex: 1;
+    padding: 32px 28px;
+    max-width: 960px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  /* ── WELCOME ── */
+  #welcome {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 70vh;
+    gap: 20px;
+    text-align: center;
+  }
+  .welcome-icon {
+    width: 64px; height: 64px;
+    border-radius: 18px;
+    background: var(--accent-soft);
+    border: 1px solid rgba(124,106,247,0.3);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .welcome-icon svg { width: 32px; height: 32px; stroke: var(--accent2); }
+  #welcome h1 { font-size: 26px; font-weight: 700; color: var(--text); }
+  #welcome p { font-size: 14px; color: var(--text2); max-width: 360px; line-height: 1.7; }
+  .hint-row { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 340px; }
+  .hint {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--text2);
+    text-align: left;
+  }
+  .hint-n {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent2);
+    font-size: 11px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  /* ── SECTION PAGE ── */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .page-header { margin-bottom: 24px; }
+  .page-header h2 { font-size: 22px; font-weight: 700; }
+  .page-header p { font-size: 13px; color: var(--text2); margin-top: 4px; }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px 22px;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 14px;
+    font-family: var(--mono);
+  }
+
+  /* ── FORM ── */
+  .field-group { display: flex; flex-direction: column; gap: 5px; }
+  .field-group label {
+    font-size: 11px;
+    color: var(--text3);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-family: var(--mono);
+  }
+  .field-group input,
+  .field-group select {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-size: 13px;
+    font-family: var(--mono);
+    padding: 9px 12px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .field-group input:focus,
+  .field-group select:focus { border-color: var(--accent); }
+  .field-group select option { background: var(--surface2); }
+
+  .fn-input-wrap { position: relative; }
+  .fn-input-wrap input { padding-right: 80px; }
+  .fn-status {
+    position: absolute; right: 10px; top: 50%;
+    transform: translateY(-50%);
+    font-size: 10px;
+    font-family: var(--mono);
+    letter-spacing: 0.06em;
+  }
+
+  .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 14px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-bottom: 14px; }
+
+  .fn-hint {
+    font-size: 11px;
+    color: var(--text3);
+    font-family: var(--mono);
+    margin-top: 6px;
+    line-height: 1.6;
+  }
+
+  /* ── BUTTON ── */
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    padding: 10px 22px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: var(--sans);
+    cursor: pointer;
+    letter-spacing: 0.03em;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+  .btn-primary:hover { opacity: 0.88; }
+  .btn-primary:active { transform: scale(0.98); }
+
+  .btn-ghost {
+    background: var(--surface2);
+    color: var(--text2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 10px 18px;
+    font-size: 13px;
+    font-family: var(--sans);
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+  }
+  .btn-ghost:hover { background: var(--surface3); color: var(--text); }
+
+  /* ── METRICS ── */
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .metric {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+  }
+  .metric-label {
+    font-size: 10px;
+    font-family: var(--mono);
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+  }
+  .metric-value {
+    font-family: var(--mono);
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .metric-value.ok { color: var(--green); }
+  .metric-value.warn { color: var(--amber); }
+  .metric-value.err { color: var(--red); }
+
+  /* ── ERROR BOX ── */
+  .err-box {
+    background: var(--red-soft);
+    border: 1px solid rgba(248,113,113,0.3);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    font-size: 13px;
+    color: var(--red);
+    margin-bottom: 14px;
+    font-family: var(--mono);
+    display: none;
+  }
+
+  /* ── TABLE ── */
+  .tbl-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    max-height: 320px;
+    overflow-y: auto;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  thead { position: sticky; top: 0; background: var(--surface2); z-index: 1; }
+  th {
+    text-align: left;
+    padding: 9px 12px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border2);
+    white-space: nowrap;
+  }
+  td {
+    padding: 7px 12px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text2);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr.row-final td { color: var(--green); background: var(--green-soft); }
+
+  /* ── CHART ── */
+  .chart-wrap { position: relative; width: 100%; height: 300px; }
+
+  .legend-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-top: 10px;
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--text3);
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .legend-line {
+    width: 18px; height: 2px;
+    flex-shrink: 0;
+  }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div id="hamburger" onclick="toggleMenu()">
+    <span></span><span></span><span></span>
+  </div>
+  <span class="topbar-title">Métodos Numéricos</span>
+  <span class="topbar-badge">v1.0</span>
+</div>
+
+<div id="overlay" onclick="closeMenu()"></div>
+
+<div id="sidebar">
+  <div class="sidebar-header">// métodos</div>
+  <div class="category-label">Ecuaciones no lineales</div>
+  <div class="method-item active" id="menu-biseccion" onclick="showPage('biseccion')">
+    <span class="method-num">01</span> Bisección
+  </div>
+</div>
+
+<div id="layout">
+  <div id="main">
+
+    <!-- WELCOME -->
+    <div id="page-welcome" class="page active">
+      <div id="welcome">
+        <div class="welcome-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 19.5A2.5 2.5 0 016.5 17H20"/>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
+          </svg>
+        </div>
+        <h1>Calculadora de<br>Métodos Numéricos</h1>
+        <p>Seleccioná un método desde el menú para ingresar los datos y obtener resultados, tablas y gráficas.</p>
+        <div class="hint-row">
+          <div class="hint"><div class="hint-n">1</div>Abrí el menú con el ícono ☰ arriba a la izquierda</div>
+          <div class="hint"><div class="hint-n">2</div>Elegí el método numérico que necesitás</div>
+          <div class="hint"><div class="hint-n">3</div>Ingresá los datos y presioná Calcular</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BISECCIÓN -->
+    <div id="page-biseccion" class="page">
+      <div class="page-header">
+        <h2>Método de Bisección</h2>
+        <p>Búsqueda binaria de raíces — encuentra x tal que f(x) = 0 en el intervalo [a, b]</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Función f(x)</div>
+        <div class="field-group" style="margin-bottom:12px">
+          <label>Expresión de f(x)</label>
+          <div class="fn-input-wrap">
+            <input id="bis-fn" type="text" value="Math.exp(x) - 2 - x" placeholder="ej: Math.exp(x) - 2 - x" oninput="validateFn('bis-fn','bis-fn-status')"/>
+            <span class="fn-status" id="bis-fn-status" style="color:var(--green)">OK</span>
+          </div>
+          <div class="fn-hint">
+            Prefijos Math: Math.sin(x) · Math.cos(x) · Math.exp(x) · Math.log(x) · Math.sqrt(x) · Math.pow(x,n) · Math.PI · Math.E<br>
+            También podés usar alias cortos: sin(x) · cos(x) · exp(x) · log(x) · sqrt(x) · pow(x,n) · E · PI<br>
+            Potencias: x**2 · Math.E**x · E**x · 2**(-x)
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Parámetros</div>
+        <div class="grid-2">
+          <div class="field-group">
+            <label>a — inicio del intervalo</label>
+            <input id="bis-a" type="number" value="0" step="any"/>
+          </div>
+          <div class="field-group">
+            <label>b — fin del intervalo</label>
+            <input id="bis-b" type="number" value="2" step="any"/>
+          </div>
+          <div class="field-group">
+            <label>Tolerancia</label>
+            <select id="bis-tol">
+              <option value="1e-2">10⁻²</option>
+              <option value="1e-3">10⁻³</option>
+              <option value="1e-4">10⁻⁴</option>
+              <option value="1e-5">10⁻⁵</option>
+              <option value="1e-6" selected>10⁻⁶</option>
+              <option value="1e-8">10⁻⁸</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label>Máx. iteraciones</label>
+            <input id="bis-iter" type="number" value="100" min="1" max="1000"/>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <button class="btn-primary" onclick="calcBiseccion()">Calcular raíz</button>
+          <button class="btn-ghost" onclick="clearBiseccion()">Limpiar</button>
+        </div>
+      </div>
+
+      <div id="bis-err" class="err-box"></div>
+      <div id="bis-aviso" style="display:none;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.35);border-radius:var(--radius);padding:12px 16px;font-size:13px;color:var(--amber);margin-bottom:14px;font-family:var(--mono)"></div>
+
+      <div id="bis-results" style="display:none">
+        <div class="metrics" id="bis-metrics"></div>
+
+        <div class="card">
+          <div class="card-title">Gráfica de f(x)</div>
+          <div class="chart-wrap"><canvas id="bis-chart" role="img" aria-label="Gráfica de la función con raíz encontrada"></canvas></div>
+          <div class="legend-row" id="bis-legend"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Tabla de iteraciones</div>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Iter.</th>
+                  <th>a</th>
+                  <th>b</th>
+                  <th>m = (a+b)/2</th>
+                  <th>f(m)</th>
+                  <th>Error (b−a)/2</th>
+                </tr>
+              </thead>
+              <tbody id="bis-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ─── MENU ─── */
+function toggleMenu(){
+  var hb=document.getElementById('hamburger');
+  var sb=document.getElementById('sidebar');
+  var ov=document.getElementById('overlay');
+  var open=sb.classList.toggle('open');
+  hb.classList.toggle('open',open);
+  ov.classList.toggle('open',open);
+}
+function closeMenu(){
+  document.getElementById('hamburger').classList.remove('open');
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('overlay').classList.remove('open');
+}
+
+/* ─── PAGES ─── */
+var pages=['welcome','biseccion'];
+function showPage(name){
+  pages.forEach(function(p){
+    var el=document.getElementById('page-'+p);
+    if(el) el.classList.remove('active');
+  });
+  document.querySelectorAll('.method-item').forEach(function(el){el.classList.remove('active');});
+  var pg=document.getElementById('page-'+name);
+  if(pg) pg.classList.add('active');
+  var mn=document.getElementById('menu-'+name);
+  if(mn) mn.classList.add('active');
+  closeMenu();
+}
+
+/* ─── VALIDATION ─── */
+function validateFn(inputId, statusId){
+  var expr=document.getElementById(inputId).value.trim();
+  var st=document.getElementById(statusId);
+  try{
+    var f=parseF(expr);
+    f(1); f(-1); f(0.5);
+    st.textContent='OK'; st.style.color='var(--green)';
+    return true;
+  }catch(e){
+    st.textContent='ERROR'; st.style.color='var(--red)';
+    return false;
+  }
+}
+
+function parseF(expr){
+  var scope = 'var sin=Math.sin,cos=Math.cos,tan=Math.tan,exp=Math.exp,log=Math.log,'
+    +'log2=Math.log2,log10=Math.log10,sqrt=Math.sqrt,abs=Math.abs,pow=Math.pow,'
+    +'sign=Math.sign,ceil=Math.ceil,floor=Math.floor,round=Math.round,'
+    +'PI=Math.PI,E=Math.E,e=Math.E;';
+  return new Function('x', scope + 'return (' + expr + ');');
+}
+
+/* ─── BISECCIÓN ─── */
+var bisChart=null;
+
+function biseccion(f,a,b,maxI,tol){
+  var fa=f(a), fb=f(b);
+
+  // Verificar si los extremos son raíz
+  if(Math.abs(fa)<=tol) return{rows:[],raiz:a,extremo:'a'};
+  if(Math.abs(fb)<=tol) return{rows:[],raiz:b,extremo:'b'};
+
+  var rows=[]; var raiz=null;
+  for(var i=0;i<maxI;i++){
+    var c=(a+b)/2;
+    var fc=f(c);
+    var er=(b-a)/2;
+    rows.push([i+1,a,b,c,fc,er]);
+    if(Math.abs(fc)<tol||er<tol){raiz=c;break;}
+    if(f(a)*fc<0)b=c;else a=c;
+  }
+  return{rows:rows,raiz:raiz,extremo:null};
+}
+
+function calcBiseccion(){
+  var fnStr=document.getElementById('bis-fn').value.trim();
+  var a=parseFloat(document.getElementById('bis-a').value);
+  var b=parseFloat(document.getElementById('bis-b').value);
+  var tol=parseFloat(document.getElementById('bis-tol').value);
+  var maxI=parseInt(document.getElementById('bis-iter').value);
+  var errEl=document.getElementById('bis-err');
+  var resEl=document.getElementById('bis-results');
+
+  var f;
+  try{ f=parseF(fnStr); f(0); }catch(e){
+    showErr('bis-err','Función inválida: '+e.message);
+    resEl.style.display='none'; return;
+  }
+
+  var fa=f(a), fb=f(b);
+  if(!isFinite(fa)||!isFinite(fb)){
+    showErr('bis-err','f(a) o f(b) no son finitos. Revisá la función y el intervalo.');
+    resEl.style.display='none'; return;
+  }
+  if(fa*fb>0){
+    showErr('bis-err','f(a) y f(b) deben tener signos opuestos.\nf('+a+') = '+fa.toFixed(8)+'\nf('+b+') = '+fb.toFixed(8));
+    resEl.style.display='none'; return;
+  }
+  errEl.style.display='none';
+
+  var res=biseccion(f,a,b,maxI,tol);
+  resEl.style.display='block';
+
+  // Aviso si el extremo es raíz
+  var avisoEl=document.getElementById('bis-aviso');
+  if(res.extremo){
+    avisoEl.textContent='¡Atención! El límite '+(res.extremo==='a'?'inferior a = '+a:'superior b = '+b)+' ya es una raíz exacta de f(x).';
+    avisoEl.style.display='block';
+  } else {
+    avisoEl.style.display='none';
+  }
+
+  var raiz=res.raiz; var rows=res.rows;
+  var last=rows.length>0?rows[rows.length-1]:null;
+
+  var fraiz = raiz!==null ? f(raiz) : null;
+  var errFinal = last ? last[5] : null;
+  document.getElementById('bis-metrics').innerHTML=
+    mCard('Raíz encontrada', raiz!==null?raiz.toPrecision(10):'No convergió', raiz!==null?'ok':'err')+
+    mCard('f(raíz)', fraiz!==null?fraiz.toExponential(4):'—', fraiz!==null?'ok':'warn', fraiz!==null?fraiz.toFixed(20).replace(/\.?0+$/,''):undefined)+
+    mCard('Iteraciones', rows.length, '')+
+    mCard('Error final', errFinal!==null?errFinal.toExponential(4):'0 (exacta)', '', errFinal!==null?errFinal.toFixed(20).replace(/\.?0+$/,''):undefined);
+
+  var tbody=document.getElementById('bis-tbody');
+  if(rows.length===0){
+    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px">El límite del intervalo es raíz exacta — no se requieren iteraciones.</td></tr>';
+  } else {
+    tbody.innerHTML=rows.map(function(r,i){
+      var isLast=i===rows.length-1;
+      return '<tr'+(isLast?' class="row-final"':'')+'>'
+        +'<td>'+r[0]+'</td>'
+        +'<td>'+r[1].toFixed(8)+'</td>'
+        +'<td>'+r[2].toFixed(8)+'</td>'
+        +'<td>'+r[3].toFixed(8)+'</td>'
+        +'<td>'+r[4].toExponential(5)+'</td>'
+        +'<td>'+r[5].toExponential(5)+'</td>'
+        +'</tr>';
+    }).join('');
+  }
+
+  drawBisChart(f,a,b,raiz);
+}
+
+function drawBisChart(f,a0,b0,raiz){
+  var margen=(b0-a0)*0.35;
+  var x0=a0-margen, x1=b0+margen;
+  var N=400; var xs=[]; var ys=[];
+  for(var i=0;i<=N;i++){
+    var x=x0+(x1-x0)*i/N;
+    var y=f(x);
+    xs.push(parseFloat(x.toFixed(8)));
+    ys.push(isFinite(y)?parseFloat(y.toFixed(10)):null);
+  }
+
+  var datasets=[{
+    label:'f(x)',
+    data:xs.map(function(x,i){return{x:x,y:ys[i]};}),
+    borderColor:'#7c6af7',
+    borderWidth:2,
+    pointRadius:0,
+    tension:0.3,
+    fill:false,
+    showLine:true
+  },{
+    label:'Eje y=0',
+    data:[{x:x0,y:0},{x:x1,y:0}],
+    borderColor:'rgba(255,255,255,0.15)',
+    borderWidth:1,
+    pointRadius:0,
+    fill:false,
+    showLine:true
+  }];
+
+  if(raiz!==null){
+    datasets.push({
+      label:'Raíz',
+      data:[{x:raiz,y:f(raiz)}],
+      pointRadius:8,
+      pointBackgroundColor:'#4ade80',
+      pointBorderColor:'#4ade80',
+      showLine:false
+    });
+    datasets.push({
+      label:'a',
+      data:[{x:a0,y:f(a0)}],
+      pointRadius:5,
+      pointBackgroundColor:'#fbbf24',
+      pointBorderColor:'#fbbf24',
+      showLine:false
+    });
+    datasets.push({
+      label:'b',
+      data:[{x:b0,y:f(b0)}],
+      pointRadius:5,
+      pointBackgroundColor:'#f87171',
+      pointBorderColor:'#f87171',
+      showLine:false
+    });
+  }
+
+  var ctx=document.getElementById('bis-chart').getContext('2d');
+  if(bisChart){bisChart.destroy();}
+
+  bisChart=new Chart(ctx,{
+    type:'scatter',
+    data:{datasets:datasets},
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{
+          type:'linear',
+          title:{display:true,text:'x',color:'#5a6075'},
+          grid:{color:'rgba(255,255,255,0.05)'},
+          ticks:{color:'#5a6075',maxTicksLimit:10}
+        },
+        y:{
+          title:{display:true,text:'f(x)',color:'#5a6075'},
+          grid:{color:'rgba(255,255,255,0.05)'},
+          ticks:{color:'#5a6075',maxTicksLimit:8}
+        }
+      }
+    }
+  });
+
+  var lgd=document.getElementById('bis-legend');
+  lgd.innerHTML=
+    '<div class="legend-item"><div class="legend-line" style="background:#7c6af7"></div>f(x)</div>'+
+    (raiz!==null?
+      '<div class="legend-item"><div class="legend-dot" style="background:#4ade80"></div>Raíz ≈ '+raiz.toPrecision(8)+'</div>'+
+      '<div class="legend-item"><div class="legend-dot" style="background:#fbbf24"></div>a = '+a0+'</div>'+
+      '<div class="legend-item"><div class="legend-dot" style="background:#f87171"></div>b = '+b0+'</div>'
+    :'');
+}
+
+function clearBiseccion(){
+  document.getElementById('bis-results').style.display='none';
+  document.getElementById('bis-err').style.display='none';
+  document.getElementById('bis-aviso').style.display='none';
+  if(bisChart){bisChart.destroy();bisChart=null;}
+}
+
+/* ─── HELPERS ─── */
+function mCard(label,value,cls,valueAlt){
+  var clickable=valueAlt!==undefined;
+  var extra=clickable?' style="cursor:pointer;user-select:none" title="Clic para expandir/contraer" onclick="toggleMetric(this)"':'';
+  var altAttr=clickable?' data-alt="'+valueAlt+'" data-original="'+value+'"':'';
+  return '<div class="metric"'+extra+'><div class="metric-label">'+label+(clickable?' <span style="font-size:9px;opacity:0.5">[clic]</span>':'')+'</div>'
+    +'<div class="metric-value '+cls+'"'+altAttr+'>'+value+'</div></div>';
+}
+function toggleMetric(card){
+  var el=card.querySelector('.metric-value');
+  if(!el||!el.dataset.alt) return;
+  var cur=el.textContent;
+  var orig=el.dataset.original;
+  var alt=el.dataset.alt;
+  el.textContent=(cur===orig)?alt:orig;
+}
+function showErr(id,msg){
+  var el=document.getElementById(id);
+  el.textContent=msg; el.style.display='block';
+}
+</script>
+</body>
+</html>
