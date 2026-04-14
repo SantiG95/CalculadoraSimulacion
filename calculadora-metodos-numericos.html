@@ -449,6 +449,9 @@
   <div class="method-item active" id="menu-biseccion" onclick="showPage('biseccion')">
     <span class="method-num">01</span> Bisección
   </div>
+  <div class="method-item" id="menu-puntofijo" onclick="showPage('puntofijo')">
+    <span class="method-num">02</span> Punto Fijo
+  </div>
 </div>
 
 <div id="layout">
@@ -562,6 +565,108 @@
       </div>
     </div>
 
+    <!-- PUNTO FIJO -->
+    <div id="page-puntofijo" class="page">
+      <div class="page-header">
+        <h2>Método de Punto Fijo</h2>
+        <p>Iteración g(x) — encuentra x tal que g(x) = x, partiendo de un x₀ inicial</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Función iterativa g(x)</div>
+        <div class="field-group" style="margin-bottom:12px">
+          <label>Expresión de g(x)</label>
+          <div class="fn-input-wrap">
+            <input id="pf-fn" type="text" value="Math.cos(x)" placeholder="ej: Math.cos(x)" oninput="validateFn('pf-fn','pf-fn-status')"/>
+            <span class="fn-status" id="pf-fn-status" style="color:var(--green)">OK</span>
+          </div>
+          <div class="fn-hint">
+            Prefijos Math: Math.sin(x) · Math.cos(x) · Math.exp(x) · Math.log(x) · Math.sqrt(x) · Math.pow(x,n) · Math.E · Math.PI<br>
+            Alias cortos: sin(x) · cos(x) · exp(x) · log(x) · sqrt(x) · E · PI · x**2
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Parámetros</div>
+        <div class="grid-2" style="margin-bottom:14px">
+          <div class="field-group">
+            <label>x₀ — valor inicial</label>
+            <input id="pf-x0" type="number" value="0" step="any"/>
+          </div>
+          <div class="field-group">
+            <label>Tolerancia</label>
+            <select id="pf-tol">
+              <option value="1e-2">10⁻²</option>
+              <option value="1e-3">10⁻³</option>
+              <option value="1e-4" selected>10⁻⁴</option>
+              <option value="1e-5">10⁻⁵</option>
+              <option value="1e-6">10⁻⁶</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label>Máx. iteraciones</label>
+            <input id="pf-iter" type="number" value="100" min="1" max="1000"/>
+          </div>
+        </div>
+
+        <div style="margin-bottom:14px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2);cursor:pointer;font-family:var(--mono)">
+            <input type="checkbox" id="pf-usar-rango" onchange="toggleRangoPF()" style="width:auto;accent-color:var(--accent)"/>
+            Usar rango de control [a, b]
+          </label>
+        </div>
+
+        <div id="pf-rango-wrap" style="display:none">
+          <div class="grid-2" style="margin-bottom:14px">
+            <div class="field-group">
+              <label>a — límite inferior</label>
+              <input id="pf-ra" type="number" value="0" step="any"/>
+            </div>
+            <div class="field-group">
+              <label>b — límite superior</label>
+              <input id="pf-rb" type="number" value="1" step="any"/>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;align-items:center">
+          <button class="btn-primary" onclick="calcPuntoFijo()">Calcular punto fijo</button>
+          <button class="btn-ghost" onclick="clearPuntoFijo()">Limpiar</button>
+        </div>
+      </div>
+
+      <div id="pf-err" class="err-box"></div>
+      <div id="pf-aviso" style="display:none;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.35);border-radius:var(--radius);padding:12px 16px;font-size:13px;color:var(--amber);margin-bottom:14px;font-family:var(--mono)"></div>
+
+      <div id="pf-results" style="display:none">
+        <div class="metrics" id="pf-metrics"></div>
+
+        <div class="card">
+          <div class="card-title">Convergencia de xₙ</div>
+          <div class="chart-wrap"><canvas id="pf-chart" role="img" aria-label="Gráfica de convergencia del método de punto fijo"></canvas></div>
+          <div class="legend-row" id="pf-legend"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Tabla de iteraciones</div>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>n</th>
+                  <th>xₙ</th>
+                  <th>xₙ₊₁ = g(xₙ)</th>
+                  <th>Error |xₙ₊₁ − xₙ|</th>
+                </tr>
+              </thead>
+              <tbody id="pf-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -582,7 +687,7 @@ function closeMenu(){
 }
 
 /* ─── PAGES ─── */
-var pages=['welcome','biseccion'];
+var pages=['welcome','biseccion','puntofijo'];
 function showPage(name){
   pages.forEach(function(p){
     var el=document.getElementById('page-'+p);
@@ -829,6 +934,138 @@ function toggleMetric(card){
 function showErr(id,msg){
   var el=document.getElementById(id);
   el.textContent=msg; el.style.display='block';
+}
+
+/* ─── PUNTO FIJO ─── */
+var pfChart=null;
+
+function toggleRangoPF(){
+  var cb=document.getElementById('pf-usar-rango');
+  document.getElementById('pf-rango-wrap').style.display=cb.checked?'block':'none';
+}
+
+function calcPuntoFijo(){
+  var fnStr=document.getElementById('pf-fn').value.trim();
+  var x0=parseFloat(document.getElementById('pf-x0').value);
+  var tol=parseFloat(document.getElementById('pf-tol').value);
+  var maxI=parseInt(document.getElementById('pf-iter').value);
+  var usarRango=document.getElementById('pf-usar-rango').checked;
+  var ra=usarRango?parseFloat(document.getElementById('pf-ra').value):null;
+  var rb=usarRango?parseFloat(document.getElementById('pf-rb').value):null;
+
+  var errEl=document.getElementById('pf-err');
+  var avisoEl=document.getElementById('pf-aviso');
+  var resEl=document.getElementById('pf-results');
+
+  var g;
+  try{ g=parseF(fnStr); g(x0); }catch(e){
+    showErr('pf-err','Función inválida: '+e.message);
+    resEl.style.display='none'; return;
+  }
+  errEl.style.display='none';
+  avisoEl.style.display='none';
+
+  var rows=[];
+  var xn=x0;
+  var xFinal=x0;
+  var convergio=false;
+  var salio=false;
+  var avisos=[];
+
+  for(var n=0;n<maxI;n++){
+    if(usarRango&&(xn<ra||xn>rb)){
+      avisos.push('Xₙ ('+xn.toFixed(6)+') salió del intervalo ['+ra+', '+rb+'] en la iteración '+n+'.');
+      salio=true; break;
+    }
+    var xSig=g(xn);
+    if(!isFinite(xSig)){
+      avisos.push('g(xₙ) diverge (valor no finito) en la iteración '+n+'. Revisá la función o el x₀.');
+      salio=true; break;
+    }
+    var err=Math.abs(xSig-xn);
+    rows.push([n,xn,xSig,err]);
+    xFinal=xSig;
+    if(err<tol){convergio=true;break;}
+    xn=xSig;
+  }
+
+  if(avisos.length>0){
+    avisoEl.innerHTML=avisos.join('<br>');
+    avisoEl.style.display='block';
+  }
+  if(!convergio&&!salio){
+    avisoEl.innerHTML=(avisoEl.innerHTML?avisoEl.innerHTML+'<br>':'')+'El método no alcanzó la tolerancia en '+maxI+' iteraciones.';
+    avisoEl.style.display='block';
+  }
+
+  resEl.style.display='block';
+  var last=rows.length>0?rows[rows.length-1]:null;
+
+  document.getElementById('pf-metrics').innerHTML=
+    mCard('Punto fijo aprox.', convergio?xFinal.toPrecision(10):'No convergió', convergio?'ok':'warn')+
+    mCard('Error final', last?last[3].toExponential(4):'—', '', last?last[3].toFixed(20).replace(/\.?0+$/,''):undefined)+
+    mCard('Iteraciones', rows.length, '')+
+    mCard('Convergió', convergio?'Sí':'No', convergio?'ok':'warn');
+
+  var tbody=document.getElementById('pf-tbody');
+  if(rows.length===0){
+    tbody.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:16px">Sin iteraciones.</td></tr>';
+  } else {
+    tbody.innerHTML=rows.map(function(r,i){
+      var isLast=i===rows.length-1&&convergio;
+      return '<tr'+(isLast?' class="row-final"':'')+'>'
+        +'<td>'+r[0]+'</td>'
+        +'<td>'+r[1].toFixed(8)+'</td>'
+        +'<td>'+r[2].toFixed(8)+'</td>'
+        +'<td>'+r[3].toExponential(5)+'</td>'
+        +'</tr>';
+    }).join('');
+  }
+
+  drawPFChart(rows,xFinal,convergio);
+}
+
+function drawPFChart(rows,xFinal,convergio){
+  var ns=rows.map(function(r){return r[0];});
+  var xs=rows.map(function(r){return r[2];});
+  var errs=rows.map(function(r){return r[3];});
+
+  var ctx=document.getElementById('pf-chart').getContext('2d');
+  if(pfChart){pfChart.destroy();}
+
+  pfChart=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:ns,
+      datasets:[
+        {label:'xₙ₊₁',data:xs,borderColor:'#7c6af7',backgroundColor:'rgba(124,106,247,0.08)',borderWidth:2,pointRadius:3,pointBackgroundColor:'#7c6af7',tension:0.3,fill:true,yAxisID:'y'},
+        {label:'Error',data:errs,borderColor:'#f87171',borderWidth:1.5,pointRadius:2,pointBackgroundColor:'#f87171',borderDash:[4,3],tension:0.2,fill:false,yAxisID:'y2'}
+      ]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{title:{display:true,text:'Iteración n',color:'#5a6075'},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075'}},
+        y:{title:{display:true,text:'xₙ₊₁',color:'#5a6075'},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075'}},
+        y2:{position:'right',title:{display:true,text:'Error',color:'#f87171'},grid:{display:false},ticks:{color:'#f87171'}}
+      }
+    }
+  });
+
+  var lgd=document.getElementById('pf-legend');
+  lgd.innerHTML=
+    '<div class="legend-item"><div class="legend-line" style="background:#7c6af7"></div>xₙ₊₁ (aproximaciones)</div>'+
+    '<div class="legend-item"><div class="legend-line" style="background:#f87171;height:1.5px"></div>Error por iteración</div>'+
+    (convergio?'<div class="legend-item"><div class="legend-dot" style="background:#4ade80"></div>Punto fijo ≈ '+xFinal.toPrecision(8)+'</div>':'');
+}
+
+function clearPuntoFijo(){
+  document.getElementById('pf-results').style.display='none';
+  document.getElementById('pf-err').style.display='none';
+  document.getElementById('pf-aviso').style.display='none';
+  if(pfChart){pfChart.destroy();pfChart=null;}
 }
 </script>
 </body>
