@@ -1229,19 +1229,25 @@
 
       <!-- Selector de sub-método -->
       <div class="card">
-        <div class="card-title">Seleccionar método</div>
-        <div class="field-group">
-          <label>Tipo de simulación Monte Carlo</label>
-          <select id="mc-tipo" onchange="mcCambiarTipo()">
-            <option value="pi">Aproximación de π (Rechazo en cuadrado de lado 2)</option>
-            <option value="integral1">Integración simple — Error máximo con N calculado (Muestreo aleatorio)</option>
-            <option value="integral2">Integración simple — Muestra fija N</option>
-            <option value="integral-doble">Integral doble ∬f(x,y) dy dx</option>
-            <option value="curvas">Área entre curvas f(x) y g(x) (Rechazo gráfico)</option>
-            <option value="sinx-x">Integral de sin(x)/x (función especial)</option>
-            <option value="orbital">Simulador orbital — Probabilidad de éxito</option>
-            <option value="financiero">Simulador financiero — Call Europea + VaR</option>
-          </select>
+        <div class="card-title">Configuración General</div>
+        <div class="grid-2">
+          <div class="field-group">
+            <label>Tipo de simulación Monte Carlo</label>
+            <select id="mc-tipo" onchange="mcCambiarTipo()">
+              <option value="pi">Aproximación de π (Rechazo en cuadrado de lado 2)</option>
+              <option value="integral1">Integración simple — Error máximo con N calculado</option>
+              <option value="integral2">Integración simple — Muestra fija N</option>
+              <option value="integral-doble">Integral doble ∬f(x,y) dy dx</option>
+              <option value="curvas">Área entre curvas f(x) y g(x) (Rechazo gráfico)</option>
+              <option value="sinx-x">Integral de sin(x)/x (función especial)</option>
+              <option value="orbital">Simulador orbital — Probabilidad de éxito</option>
+              <option value="financiero">Simulador financiero — Call Europea + VaR</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label>Semilla (Seed) — Opcional</label>
+            <input id="mc-seed" type="number" placeholder="ej: 12345 (vacío = aleatorio)"/>
+          </div>
         </div>
       </div>
 
@@ -3153,6 +3159,28 @@ function clearNewtonCotes(){
 var mcChart = null;
 
 /* ─── Utilidades ─── */
+var customRandom = Math.random;
+
+// Algoritmo PRNG Mulberry32
+function mulberry32(a) {
+  return function() {
+    var t = a += 0x6D2B79F5;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  }
+}
+
+// Inicializador de la semilla antes de cada cálculo
+function initSeed() {
+  var seed = document.getElementById('mc-seed').value.trim();
+  if (seed !== '') {
+    customRandom = mulberry32(parseInt(seed));
+  } else {
+    customRandom = Math.random; // Vuelve al comportamiento original si está vacío
+  }
+}
+
 function parseFXY(s){
   s=s.replace(/\bsin\b/g,'Math.sin').replace(/\bcos\b/g,'Math.cos')
      .replace(/\btan\b/g,'Math.tan').replace(/\bexp\b/g,'Math.exp')
@@ -3169,13 +3197,13 @@ function validateFnXY(inId, statusId){
   catch(e){ st.textContent='ERR'; st.style.color='var(--red)'; }
 }
 
-function mcRand(n){ var a=new Float64Array(n); for(var i=0;i<n;i++) a[i]=Math.random(); return a; }
+function mcRand(n){ var a=new Float64Array(n); for(var i=0;i<n;i++) a[i]=customRandom(); return a; }
 
 function mcNormal(n){
   // Box-Muller
   var a=new Float64Array(n);
   for(var i=0;i<n;i+=2){
-    var u1=Math.random(), u2=Math.random();
+    var u1=customRandom(), u2=customRandom();
     var r=Math.sqrt(-2*Math.log(u1));
     a[i]=r*Math.cos(2*Math.PI*u2);
     if(i+1<n) a[i+1]=r*Math.sin(2*Math.PI*u2);
@@ -3226,13 +3254,14 @@ function mcLimpiar(){
 function mcCalcPi(){
   mcHideErr();
   mcDestroyChart();
+  initSeed();
   var n=parseInt(document.getElementById('mc-pi-n').value);
   if(isNaN(n)||n<100){ mcShowErr('N debe ser al menos 100.'); return; }
 
   var x=[],y=[],dentro=[];
   var exitos=0;
   for(var i=0;i<n;i++){
-    var xi=Math.random()*2-1, yi=Math.random()*2-1;
+    var xi=customRandom()*2-1, yi=customRandom()*2-1;
     x.push(xi); y.push(yi);
     var d=(xi*xi+yi*yi<=1);
     dentro.push(d);
@@ -3293,6 +3322,7 @@ function mcCalcPi(){
 function mcCalcIntegral1(){
   mcHideErr();
   mcDestroyChart();
+  initSeed();
   var fnStr=document.getElementById('mc-i1-fn').value.trim();
   var a=parseFloat(document.getElementById('mc-i1-a').value);
   var b=parseFloat(document.getElementById('mc-i1-b').value);
@@ -3304,7 +3334,7 @@ function mcCalcIntegral1(){
 
   // Muestra piloto
   var nP=1000;
-  var yPiloto=[]; for(var i=0;i<nP;i++) yPiloto.push(f(a+(b-a)*Math.random()));
+  var yPiloto=[]; for(var i=0;i<nP;i++) yPiloto.push(f(a+(b-a)*customRandom()));
   var meanP=yPiloto.reduce(function(s,v){return s+v;},0)/nP;
   var varP=yPiloto.reduce(function(s,v){return s+(v-meanP)*(v-meanP);},0)/(nP-1);
   var sigmaEst=Math.sqrt(varP);
@@ -3315,7 +3345,7 @@ function mcCalcIntegral1(){
   if(n>5000000){ mcShowErr('N calculado ('+n+') es demasiado grande. Aumentá el error máximo o reducí la confianza.'); return; }
 
   // Integración con N calculado
-  var vals=[]; for(var i=0;i<n;i++) vals.push(f(a+(b-a)*Math.random()));
+  var vals=[]; for(var i=0;i<n;i++) vals.push(f(a+(b-a)*customRandom()));
   var mean=vals.reduce(function(s,v){return s+v;},0)/n;
   var integral=(b-a)*mean;
   var varY=vals.reduce(function(s,v){return s+(v-mean)*(v-mean);},0)/(n-1);
@@ -3359,6 +3389,7 @@ function mcCalcIntegral1(){
 function mcCalcIntegral2(){
   mcHideErr();
   mcDestroyChart();
+  initSeed();
   var fnStr=document.getElementById('mc-i2-fn').value.trim();
   var a=parseFloat(document.getElementById('mc-i2-a').value);
   var b=parseFloat(document.getElementById('mc-i2-b').value);
@@ -3368,7 +3399,7 @@ function mcCalcIntegral2(){
   if(isNaN(n)||n<100){ mcShowErr('N debe ser al menos 100.'); return; }
   var f; try{ f=parseF(fnStr); f(a); }catch(e){ mcShowErr('f(x) inválida: '+e.message); return; }
 
-  var vals=[]; for(var i=0;i<n;i++) vals.push(f(a+(b-a)*Math.random()));
+  var vals=[]; for(var i=0;i<n;i++) vals.push(f(a+(b-a)*customRandom()));
   var mean=vals.reduce(function(s,v){return s+v;},0)/n;
   var integral=(b-a)*mean;
   var varY=vals.reduce(function(s,v){return s+(v-mean)*(v-mean);},0)/(n-1);
@@ -3394,7 +3425,7 @@ function mcCalcIntegral2(){
   var maxPts=Math.min(n,800);
   var scX=[],scY=[];
   for(var i=0;i<maxPts;i++){
-    var xi=a+(b-a)*Math.random(); scX.push(xi); scY.push(f(xi));
+    var xi=a+(b-a)*customRandom(); scX.push(xi); scY.push(f(xi));
   }
   mcChart=new Chart(ctx,{
     type:'line',
@@ -3432,6 +3463,7 @@ function mcCalcIntegral2(){
 function mcCalcIntegralDoble(){
   mcHideErr();
   mcDestroyChart();
+  initSeed();
   var fnStr=document.getElementById('mc-id-fn').value.trim();
   var x1=parseFloat(document.getElementById('mc-id-x1').value);
   var x2=parseFloat(document.getElementById('mc-id-x2').value);
@@ -3447,8 +3479,8 @@ function mcCalcIntegralDoble(){
   var area=(x2-x1)*(y2-y1);
   var vals=[];
   for(var i=0;i<n;i++){
-    var xi=x1+(x2-x1)*Math.random();
-    var yi=y1+(y2-y1)*Math.random();
+    var xi=x1+(x2-x1)*customRandom();
+    var yi=y1+(y2-y1)*customRandom();
     vals.push(fxy(xi,yi));
   }
   var mean=vals.reduce(function(s,v){return s+v;},0)/n;
@@ -3493,6 +3525,7 @@ function mcCalcIntegralDoble(){
 function mcCalcCurvas(){
   mcHideErr();
   mcDestroyChart();
+  initSeed();
   var fStr=document.getElementById('mc-cv-f').value.trim();
   var gStr=document.getElementById('mc-cv-g').value.trim();
   var a=parseFloat(document.getElementById('mc-cv-a').value);
@@ -3519,8 +3552,8 @@ function mcCalcCurvas(){
   var xArr=[],yArr=[],exitos=[];
   var nEx=0;
   for(var i=0;i<n;i++){
-    var xi=a+(b-a)*Math.random();
-    var yi=yMin+(yMax-yMin)*Math.random();
+    var xi=a+(b-a)*customRandom();
+    var yi=yMin+(yMax-yMin)*customRandom();
     var ok=(yi<=fTecho(xi)&&yi>=fPiso(xi));
     xArr.push(xi); yArr.push(yi); exitos.push(ok);
     if(ok) nEx++;
@@ -3578,6 +3611,7 @@ function mcCalcCurvas(){
 function mcCalcSinxX(){
   mcHideErr();
   mcDestroyChart();
+  initSeed();
   var a=parseFloat(document.getElementById('mc-sx-a').value);
   var b=parseFloat(document.getElementById('mc-sx-b').value);
   var n=parseInt(document.getElementById('mc-sx-n').value);
@@ -3587,7 +3621,7 @@ function mcCalcSinxX(){
   if(isNaN(n)||n<100){ mcShowErr('N debe ser al menos 100.'); return; }
 
   var f=function(x){ return x===0?1:Math.sin(x)/x; };
-  var vals=[]; for(var i=0;i<n;i++) vals.push(f(a+(b-a)*Math.random()));
+  var vals=[]; for(var i=0;i<n;i++) vals.push(f(a+(b-a)*customRandom()));
   var mean=vals.reduce(function(s,v){return s+v;},0)/n;
   var integral=(b-a)*mean;
   var varY=vals.reduce(function(s,v){return s+(v-mean)*(v-mean);},0)/(n-1);
@@ -3634,6 +3668,7 @@ function mcCalcSinxX(){
 function mcCalcOrbital(){
   mcHideErr();
   mcDestroyChart();
+  initSeed();
   var dvN=parseFloat(document.getElementById('mc-orb-dv').value);
   var sdv=parseFloat(document.getElementById('mc-orb-sdv').value);
   var tN=parseFloat(document.getElementById('mc-orb-t').value);
@@ -3709,6 +3744,8 @@ function mcCalcOrbital(){
 function mcCalcFinanciero(){
   mcHideErr();
   mcDestroyChart();
+  initSeed();
+  
   var S0=parseFloat(document.getElementById('mc-fin-s0').value);
   var K=parseFloat(document.getElementById('mc-fin-k').value);
   var T=parseFloat(document.getElementById('mc-fin-t').value);
