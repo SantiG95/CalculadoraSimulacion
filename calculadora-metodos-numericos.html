@@ -458,6 +458,10 @@
   <div class="method-item" id="menu-newton" onclick="showPage('newton')">
     <span class="method-num">04</span> Newton-Raphson
   </div>
+  <div class="category-label">Interpolación</div>
+  <div class="method-item" id="menu-lagrange" onclick="showPage('lagrange')">
+    <span class="method-num">05</span> Lagrange
+  </div>
 </div>
 
 <div id="layout">
@@ -846,6 +850,106 @@
       </div>
     </div>
 
+    <!-- LAGRANGE -->
+    <div id="page-lagrange" class="page">
+      <div class="page-header">
+        <h2>Interpolación de Lagrange</h2>
+        <p>Construye el polinomio interpolante P(x) que pasa exactamente por los nodos dados</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Nodos de interpolación</div>
+        <p style="font-size:12px;color:var(--text3);margin-bottom:12px;font-family:var(--mono)">Ingresá los pares (x, y). Podés escribir expresiones en y: sin(0.5), cos(PI/3), sqrt(2), log(1), etc.</p>
+        <div id="lg-nodos-wrap" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-ghost" onclick="lgAddRow()" style="font-size:12px;padding:7px 14px">+ Agregar nodo</button>
+          <button class="btn-ghost" onclick="lgRemoveRow()" style="font-size:12px;padding:7px 14px">− Quitar último</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Evaluación y opciones</div>
+        <div class="grid-2" style="margin-bottom:14px">
+          <div class="field-group">
+            <label>x a evaluar — P(x)</label>
+            <input id="lg-xeval" type="number" value="0.45" step="any"/>
+          </div>
+          <div class="field-group">
+            <label>Decimales en resultados</label>
+            <select id="lg-dec">
+              <option value="4">4</option>
+              <option value="6" selected>6</option>
+              <option value="8">8</option>
+              <option value="10">10</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-bottom:12px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2);cursor:pointer;font-family:var(--mono)">
+            <input type="checkbox" id="lg-usar-f" onchange="toggleLgF()" style="width:auto;accent-color:var(--accent)"/>
+            Tengo la función real f(x) para calcular error local exacto
+          </label>
+        </div>
+        <div id="lg-f-wrap" style="display:none;margin-bottom:12px">
+          <div class="field-group">
+            <label>f(x) — función real</label>
+            <div class="fn-input-wrap">
+              <input id="lg-fn" type="text" value="cos(x)" placeholder="ej: cos(x)" oninput="validateFn('lg-fn','lg-fn-status')"/>
+              <span class="fn-status" id="lg-fn-status" style="color:var(--green)">OK</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:12px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2);cursor:pointer;font-family:var(--mono)">
+            <input type="checkbox" id="lg-usar-maxder" onchange="toggleLgMaxder()" style="width:auto;accent-color:var(--accent)"/>
+            Ingresar máximo de la derivada (n+1) para cota de error teórico
+          </label>
+        </div>
+        <div id="lg-maxder-wrap" style="display:none;margin-bottom:12px">
+          <div class="field-group">
+            <label>Máx |f⁽ⁿ⁺¹⁾(x)| en el intervalo</label>
+            <input id="lg-maxder" type="number" value="1" step="any"/>
+          </div>
+        </div>
+
+        <div style="margin-bottom:12px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2);cursor:pointer;font-family:var(--mono)">
+            <input type="checkbox" id="lg-desborde" style="width:auto;accent-color:var(--accent)"/>
+            Extender gráfica más allá del intervalo de nodos (extrapolación)
+          </label>
+        </div>
+
+        <div style="display:flex;gap:10px;align-items:center">
+          <button class="btn-primary" onclick="calcLagrange()">Interpolar</button>
+          <button class="btn-ghost" onclick="clearLagrange()">Limpiar</button>
+        </div>
+      </div>
+
+      <div id="lg-err" class="err-box"></div>
+
+      <div id="lg-results" style="display:none">
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-title">Polinomio interpolante P(x)</div>
+          <div id="lg-poly-text" style="font-family:var(--mono);font-size:13px;color:var(--accent2);word-break:break-all;line-height:1.8"></div>
+        </div>
+
+        <div class="metrics" id="lg-metrics"></div>
+
+        <div class="card">
+          <div class="card-title">Gráfica del polinomio interpolante</div>
+          <div class="chart-wrap" style="height:320px"><canvas id="lg-chart" role="img" aria-label="Gráfica del polinomio interpolante de Lagrange"></canvas></div>
+          <div class="legend-row" id="lg-legend"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Polinomios base de Lagrange Lᵢ(x)</div>
+          <div id="lg-bases" style="font-family:var(--mono);font-size:12px;color:var(--text2);line-height:2"></div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -866,7 +970,7 @@ function closeMenu(){
 }
 
 /* ─── PAGES ─── */
-var pages=['welcome','biseccion','puntofijo','aitken','newton'];
+var pages=['welcome','biseccion','puntofijo','aitken','newton','lagrange'];
 function showPage(name){
   pages.forEach(function(p){
     var el=document.getElementById('page-'+p);
@@ -1590,6 +1694,270 @@ function clearNewton(){
   document.getElementById('nr-aviso').style.display='none';
   if(nrChart){nrChart.destroy();nrChart=null;}
 }
+
+/* ─── LAGRANGE ─── */
+var lgChart=null;
+
+function lgEvalExpr(expr){
+  var scope='var sin=Math.sin,cos=Math.cos,tan=Math.tan,exp=Math.exp,log=Math.log,'
+    +'sqrt=Math.sqrt,abs=Math.abs,pow=Math.pow,PI=Math.PI,E=Math.E,e=Math.E;';
+  return (new Function(scope+'return ('+expr+');'))();
+}
+
+function lgAddRow(xi, yi){
+  var wrap=document.getElementById('lg-nodos-wrap');
+  var idx=wrap.children.length;
+  var row=document.createElement('div');
+  row.style.cssText='display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center';
+  row.innerHTML=
+    '<div class="field-group"><label>x'+(idx)+'</label>'
+    +'<input type="text" placeholder="ej: 0" value="'+(xi!==undefined?xi:'')+'" style="font-family:var(--mono);font-size:13px"/></div>'
+    +'<div class="field-group"><label>y'+(idx)+' = f(x'+(idx)+')</label>'
+    +'<input type="text" placeholder="ej: 1 o cos(0)" value="'+(yi!==undefined?yi:'')+'" style="font-family:var(--mono);font-size:13px"/></div>'
+    +'<div style="padding-top:16px;color:var(--text3);font-size:11px;font-family:var(--mono)">nodo '+idx+'</div>';
+  wrap.appendChild(row);
+}
+
+function lgRemoveRow(){
+  var wrap=document.getElementById('lg-nodos-wrap');
+  if(wrap.children.length>2) wrap.removeChild(wrap.lastChild);
+}
+
+function lgGetNodos(){
+  var wrap=document.getElementById('lg-nodos-wrap');
+  var xs=[], ys=[];
+  var errores=[];
+  for(var i=0;i<wrap.children.length;i++){
+    var inputs=wrap.children[i].querySelectorAll('input');
+    var xval=inputs[0].value.trim();
+    var yval=inputs[1].value.trim();
+    if(xval===''||yval===''){errores.push('Nodo '+(i)+': campos vacíos.');continue;}
+    try{
+      var x=lgEvalExpr(xval);
+      var y=lgEvalExpr(yval);
+      if(!isFinite(x)||!isFinite(y)) throw new Error('valor no finito');
+      xs.push(x); ys.push(y);
+    }catch(e){ errores.push('Nodo '+(i)+': expresión inválida — '+e.message); }
+  }
+  return{xs:xs,ys:ys,errores:errores};
+}
+
+function toggleLgF(){
+  document.getElementById('lg-f-wrap').style.display=
+    document.getElementById('lg-usar-f').checked?'block':'none';
+}
+function toggleLgMaxder(){
+  document.getElementById('lg-maxder-wrap').style.display=
+    document.getElementById('lg-usar-maxder').checked?'block':'none';
+}
+
+// Evalúa el polinomio de Lagrange en un punto usando la fórmula directa
+function lagrangeEval(xs, ys, x){
+  var n=xs.length, result=0;
+  for(var i=0;i<n;i++){
+    var Li=1;
+    for(var j=0;j<n;j++){
+      if(i!==j) Li*=(x-xs[j])/(xs[i]-xs[j]);
+    }
+    result+=ys[i]*Li;
+  }
+  return result;
+}
+
+// Devuelve coeficientes del polinomio L_i(x) como array de [coef, potencia] sumados
+function lagrangeBaseCoeffs(xs, i){
+  // construimos Li como producto de (x - xs[j])/(xs[i]-xs[j]) para j!=i
+  // representamos como polinomio en array de coeficientes [a_n,...,a_0]
+  var n=xs.length;
+  var poly=[1]; // empieza como 1
+  for(var j=0;j<n;j++){
+    if(i===j) continue;
+    var denom=xs[i]-xs[j];
+    var root=xs[j];
+    // multiplica poly por (x - root)/denom
+    var newpoly=new Array(poly.length+1).fill(0);
+    for(var k=0;k<poly.length;k++){
+      newpoly[k]+=poly[k]/denom;
+      newpoly[k+1]+=-root*poly[k]/denom;
+    }
+    poly=newpoly;
+  }
+  return poly; // poly[0]*x^(n-1) + poly[1]*x^(n-2) + ... + poly[n-1]
+}
+
+// Suma todos los Li*yi para obtener P(x)
+function lagrangePolyCoeffs(xs, ys){
+  var n=xs.length;
+  var total=new Array(n).fill(0);
+  for(var i=0;i<n;i++){
+    var li=lagrangeBaseCoeffs(xs,i);
+    for(var k=0;k<li.length;k++) total[k]+=ys[i]*li[k];
+  }
+  return total;
+}
+
+function polyToText(coeffs, dec){
+  var n=coeffs.length-1;
+  var terms=[];
+  for(var i=0;i<coeffs.length;i++){
+    var c=coeffs[i];
+    var pot=n-i;
+    if(Math.abs(c)<1e-12) continue;
+    var sign=c>=0?'+':'-';
+    var val=Math.abs(c).toFixed(dec);
+    var term;
+    if(pot===0) term=val;
+    else if(pot===1) term=val+'x';
+    else term=val+'x^'+pot;
+    if(terms.length===0) term=(c<0?'-':'')+term;
+    else term=' '+sign+' '+term;
+    terms.push(term);
+  }
+  return terms.length?terms.join(''):'0';
+}
+
+function factorial(n){ var r=1; for(var i=2;i<=n;i++) r*=i; return r; }
+
+function calcLagrange(){
+  var errEl=document.getElementById('lg-err');
+  var resEl=document.getElementById('lg-results');
+  errEl.style.display='none';
+
+  var nodos=lgGetNodos();
+  if(nodos.errores.length>0){
+    showErr('lg-err', nodos.errores.join(' | '));
+    resEl.style.display='none'; return;
+  }
+  if(nodos.xs.length<2){
+    showErr('lg-err','Se necesitan al menos 2 nodos.');
+    resEl.style.display='none'; return;
+  }
+
+  // Verificar xᵢ distintos
+  for(var i=0;i<nodos.xs.length;i++)
+    for(var j=i+1;j<nodos.xs.length;j++)
+      if(Math.abs(nodos.xs[i]-nodos.xs[j])<1e-14){
+        showErr('lg-err','Los valores de x deben ser distintos (x'+i+' = x'+j+' = '+nodos.xs[i]+').');
+        resEl.style.display='none'; return;
+      }
+
+  var xs=nodos.xs, ys=nodos.ys;
+  var dec=parseInt(document.getElementById('lg-dec').value);
+  var xEval=parseFloat(document.getElementById('lg-xeval').value);
+  var desborde=document.getElementById('lg-desborde').checked;
+
+  var coeffs=lagrangePolyCoeffs(xs,ys);
+  var pEval=lagrangeEval(xs,ys,xEval);
+
+  // Función real (opcional)
+  var usarF=document.getElementById('lg-usar-f').checked;
+  var errorLocal=null;
+  if(usarF){
+    var fnStr=document.getElementById('lg-fn').value.trim();
+    try{
+      var fReal=parseF(fnStr);
+      errorLocal=Math.abs(fReal(xEval)-pEval);
+    }catch(e){ showErr('lg-err','f(x) inválida: '+e.message); return; }
+  }
+
+  // Cota de error teórico (opcional)
+  var usarMaxder=document.getElementById('lg-usar-maxder').checked;
+  var cotaError=null;
+  if(usarMaxder){
+    var maxDer=parseFloat(document.getElementById('lg-maxder').value);
+    var n=xs.length;
+    var omega=1;
+    for(var i=0;i<n;i++) omega*=(xEval-xs[i]);
+    cotaError=Math.abs((maxDer/factorial(n))*omega);
+  }
+
+  resEl.style.display='block';
+
+  // Polinomio en texto
+  document.getElementById('lg-poly-text').textContent='P(x) = '+polyToText(coeffs,dec);
+
+  // Métricas
+  var metricsHTML=
+    mCard('P('+xEval.toFixed(4)+')', pEval.toFixed(dec), 'ok')+
+    mCard('Grado del polinomio', xs.length-1, '');
+  if(errorLocal!==null)
+    metricsHTML+=mCard('Error local exacto', errorLocal.toExponential(4), '', errorLocal.toFixed(20).replace(/\.?0+$/,''));
+  if(cotaError!==null)
+    metricsHTML+=mCard('Cota error teórico', cotaError.toExponential(4), 'warn', cotaError.toFixed(20).replace(/\.?0+$/,''));
+  document.getElementById('lg-metrics').innerHTML=metricsHTML;
+
+  // Bases Lᵢ(x)
+  var basesHTML='';
+  for(var i=0;i<xs.length;i++){
+    var liCoeffs=lagrangeBaseCoeffs(xs,i);
+    var liEval=lagrangeEval(xs.map(function(_,k){return k===i?1:0;}),xs.map(function(_,k){return k===i?1:0;}),xEval); // L_i(xEval)
+    var liVal=1; for(var j=0;j<xs.length;j++) if(i!==j) liVal*=(xEval-xs[j])/(xs[i]-xs[j]);
+    basesHTML+='<div style="margin-bottom:6px;padding:6px 10px;background:var(--surface2);border-radius:var(--radius);border:1px solid var(--border)">'
+      +'<span style="color:var(--accent2)">L'+i+'(x)</span> = '+polyToText(liCoeffs,dec)
+      +'<span style="color:var(--text3);margin-left:12px">→ L'+i+'('+xEval.toFixed(4)+') = '+liVal.toFixed(dec)+'</span>'
+      +'</div>';
+  }
+  document.getElementById('lg-bases').innerHTML=basesHTML;
+
+  // Gráfica
+  var xMin=Math.min.apply(null,xs), xMax=Math.max.apply(null,xs);
+  var margen=desborde?(xMax-xMin)*0.25:0;
+  var x0p=xMin-margen, x1p=xMax+margen;
+  var N=400;
+  var xPlot=[], yPlot=[], yReal=[];
+  var fRealFn=usarF?parseF(document.getElementById('lg-fn').value.trim()):null;
+  for(var i=0;i<=N;i++){
+    var xp=x0p+(x1p-x0p)*i/N;
+    xPlot.push(parseFloat(xp.toFixed(8)));
+    yPlot.push(lagrangeEval(xs,ys,xp));
+    if(fRealFn){ var yf=fRealFn(xp); yReal.push(isFinite(yf)?yf:null); }
+  }
+
+  var datasets=[
+    {label:'P(x)',data:xPlot.map(function(x,i){return{x:x,y:yPlot[i]};}),borderColor:'#7c6af7',borderWidth:2,pointRadius:0,tension:0,fill:false,showLine:true},
+    {label:'Nodos',data:xs.map(function(x,i){return{x:x,y:ys[i]};}),pointRadius:7,pointBackgroundColor:'#f87171',pointBorderColor:'#f87171',showLine:false,borderColor:'transparent'},
+    {label:'P(xₑᵥₐₗ)',data:[{x:xEval,y:pEval}],pointRadius:8,pointBackgroundColor:'#4ade80',pointBorderColor:'#4ade80',pointStyle:'crossRot',showLine:false,borderColor:'transparent'}
+  ];
+  if(fRealFn){
+    datasets.push({label:'f(x) real',data:xPlot.map(function(x,i){return{x:x,y:yReal[i]};}),borderColor:'#fbbf24',borderWidth:1.5,borderDash:[5,4],pointRadius:0,tension:0,fill:false,showLine:true});
+  }
+
+  var ctx=document.getElementById('lg-chart').getContext('2d');
+  if(lgChart){lgChart.destroy();}
+  lgChart=new Chart(ctx,{
+    type:'scatter',
+    data:{datasets:datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{type:'linear',title:{display:true,text:'x',color:'#5a6075'},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075',maxTicksLimit:10}},
+        y:{title:{display:true,text:'P(x)',color:'#5a6075'},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075',maxTicksLimit:8}}
+      }
+    }
+  });
+
+  var lgd=document.getElementById('lg-legend');
+  lgd.innerHTML=
+    '<div class="legend-item"><div class="legend-line" style="background:#7c6af7"></div>P(x) interpolante</div>'+
+    '<div class="legend-item"><div class="legend-dot" style="background:#f87171"></div>Nodos dados</div>'+
+    '<div class="legend-item"><div class="legend-dot" style="background:#4ade80"></div>P('+xEval.toFixed(4)+') = '+pEval.toFixed(dec)+'</div>'+
+    (fRealFn?'<div class="legend-item"><div class="legend-line" style="background:#fbbf24;height:1.5px"></div>f(x) real</div>':'');
+}
+
+function clearLagrange(){
+  document.getElementById('lg-results').style.display='none';
+  document.getElementById('lg-err').style.display='none';
+  if(lgChart){lgChart.destroy();lgChart=null;}
+  document.getElementById('lg-poly-text').textContent='';
+}
+
+// Inicializar nodos por defecto al cargar
+(function initLagrange(){
+  lgAddRow('0','cos(0)');
+  lgAddRow('0.6','cos(0.6)');
+  lgAddRow('0.9','cos(0.9)');
+})();
 </script>
 </body>
 </html>
