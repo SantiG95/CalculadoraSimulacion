@@ -462,6 +462,10 @@
   <div class="method-item" id="menu-lagrange" onclick="showPage('lagrange')">
     <span class="method-num">05</span> Lagrange
   </div>
+  <div class="category-label">Diferenciación numérica</div>
+  <div class="method-item" id="menu-diffinitas" onclick="showPage('diffinitas')">
+    <span class="method-num">06</span> Diferencias Finitas
+  </div>
 </div>
 
 <div id="layout">
@@ -950,9 +954,157 @@
       </div>
     </div>
 
+    <!-- DIFERENCIAS FINITAS -->
+    <div id="page-diffinitas" class="page">
+      <div class="page-header">
+        <h2>Diferencias Finitas</h2>
+        <p>Derivación numérica para funciones continuas y datos discretos (tablas)</p>
+      </div>
+
+      <!-- MODO SELECTOR -->
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title">Modo de trabajo</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button id="df-tab-fn" class="btn-primary" onclick="dfSetTab('fn')" style="flex:1;min-width:160px">Función continua f(x)</button>
+          <button id="df-tab-disc" class="btn-ghost" onclick="dfSetTab('disc')" style="flex:1;min-width:160px">Datos discretos (tabla)</button>
+        </div>
+      </div>
+
+      <!-- MODO: FUNCIÓN CONTINUA -->
+      <div id="df-panel-fn">
+        <div class="card">
+          <div class="card-title">Función f(x)</div>
+          <div class="field-group" style="margin-bottom:10px">
+            <label>f(x)</label>
+            <div class="fn-input-wrap">
+              <input id="df-fn" type="text" value="sin(x)" placeholder="ej: sin(x)" oninput="validateFn('df-fn','df-fn-status')"/>
+              <span class="fn-status" id="df-fn-status" style="color:var(--green)">OK</span>
+            </div>
+            <div class="fn-hint">Alias: sin · cos · exp · log · sqrt · pow · E · PI · x**2 — o con Math.sin(x) etc.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Puntos x y paso h</div>
+          <div class="grid-2" style="margin-bottom:12px">
+            <div class="field-group">
+              <label>Paso h</label>
+              <input id="df-h" type="number" value="0.1" step="any"/>
+            </div>
+          </div>
+          <div style="margin-bottom:8px;font-size:12px;color:var(--text3);font-family:var(--mono)">Puntos x (separados por coma o espacio)</div>
+          <div class="field-group" style="margin-bottom:12px">
+            <input id="df-xpts" type="text" value="0, 0.1, 0.2, 0.3, 0.4, 0.5" placeholder="ej: 0, 0.1, 0.2, 0.3"/>
+          </div>
+          <div style="margin-bottom:12px">
+            <div style="font-size:12px;color:var(--text3);font-family:var(--mono);margin-bottom:6px">Fórmulas a calcular</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px">
+              <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;font-family:var(--mono)">
+                <input type="checkbox" id="df-c1" checked style="width:auto;accent-color:var(--accent)"/> f'(x) central O(h²)
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;font-family:var(--mono)">
+                <input type="checkbox" id="df-c2" checked style="width:auto;accent-color:var(--accent)"/> f''(x) central O(h²)
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;font-family:var(--mono)">
+                <input type="checkbox" id="df-prog2" style="width:auto;accent-color:var(--accent)"/> f'(x) progresiva O(h²)
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;font-family:var(--mono)">
+                <input type="checkbox" id="df-reg2" style="width:auto;accent-color:var(--accent)"/> f'(x) regresiva O(h²)
+              </label>
+            </div>
+          </div>
+          <div style="margin-bottom:12px">
+            <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2);cursor:pointer;font-family:var(--mono)">
+              <input type="checkbox" id="df-usar-freal" onchange="toggleDfFreal()" style="width:auto;accent-color:var(--accent)"/>
+              Tengo la derivada exacta f'(x) para calcular error absoluto
+            </label>
+          </div>
+          <div id="df-freal-wrap" style="display:none;margin-bottom:12px">
+            <div class="field-group">
+              <label>f'(x) exacta</label>
+              <div class="fn-input-wrap">
+                <input id="df-freal" type="text" value="cos(x)" placeholder="ej: cos(x)" oninput="validateFn('df-freal','df-freal-status')"/>
+                <span class="fn-status" id="df-freal-status" style="color:var(--green)">OK</span>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px">
+            <button class="btn-primary" onclick="calcDifFinFn()">Calcular</button>
+            <button class="btn-ghost" onclick="clearDifFin()">Limpiar</button>
+          </div>
+        </div>
+
+        <div id="df-fn-results" style="display:none">
+          <div id="df-fn-err" class="err-box"></div>
+          <div class="card">
+            <div class="card-title">Resultados por punto</div>
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr id="df-fn-thead"></tr></thead>
+                <tbody id="df-fn-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Gráfica — derivadas numéricas vs exacta</div>
+            <div class="chart-wrap" style="height:300px"><canvas id="df-fn-chart" role="img" aria-label="Gráfica de derivadas numéricas"></canvas></div>
+            <div class="legend-row" id="df-fn-legend"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODO: DATOS DISCRETOS -->
+      <div id="df-panel-disc" style="display:none">
+        <div class="card">
+          <div class="card-title">Tabla de datos discretos t / x(t)</div>
+          <div style="margin-bottom:8px;font-size:12px;color:var(--text3);font-family:var(--mono)">
+            Ingresá los valores separados por coma o espacio. La cantidad de valores debe ser igual en ambas filas.
+          </div>
+          <div class="field-group" style="margin-bottom:10px">
+            <label>t (tiempo u eje independiente)</label>
+            <input id="df-t" type="text" value="0, 1, 2, 3, 4, 5, 6, 7, 8" placeholder="ej: 0, 1, 2, 3, 4"/>
+          </div>
+          <div class="field-group" style="margin-bottom:14px">
+            <label>x (posición u otra magnitud)</label>
+            <input id="df-x" type="text" value="0, 1.9, 4.2, 7.8, 12, 17, 25, 32, 42" placeholder="ej: 0, 1.9, 4.2, 7.8"/>
+          </div>
+          <div style="display:flex;gap:10px">
+            <button class="btn-primary" onclick="calcDifFinDisc()">Calcular v y a</button>
+            <button class="btn-ghost" onclick="clearDifFin()">Limpiar</button>
+          </div>
+        </div>
+
+        <div id="df-disc-results" style="display:none">
+          <div id="df-disc-err" class="err-box"></div>
+          <div class="metrics" id="df-disc-metrics"></div>
+          <div class="card">
+            <div class="card-title">Tabla — t, x, v, a</div>
+            <div class="tbl-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>t</th><th>x(t)</th>
+                    <th>v = x'(t) (m/s)</th>
+                    <th>a = x''(t) (m/s²)</th>
+                    <th>Método v</th>
+                    <th>Método a</th>
+                  </tr>
+                </thead>
+                <tbody id="df-disc-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Gráfica — posición, velocidad y aceleración</div>
+            <div class="chart-wrap" style="height:320px"><canvas id="df-disc-chart" role="img" aria-label="Gráfica de posición velocidad y aceleración discreta"></canvas></div>
+            <div class="legend-row" id="df-disc-legend"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
-
 <script>
 /* ─── MENU ─── */
 function toggleMenu(){
@@ -970,7 +1122,7 @@ function closeMenu(){
 }
 
 /* ─── PAGES ─── */
-var pages=['welcome','biseccion','puntofijo','aitken','newton','lagrange'];
+var pages=['welcome','biseccion','puntofijo','aitken','newton','lagrange','diffinitas'];
 function showPage(name){
   pages.forEach(function(p){
     var el=document.getElementById('page-'+p);
@@ -1958,6 +2110,236 @@ function clearLagrange(){
   lgAddRow('0.6','cos(0.6)');
   lgAddRow('0.9','cos(0.9)');
 })();
+
+/* ─── DIFERENCIAS FINITAS ─── */
+var dfFnChart=null, dfDiscChart=null;
+var dfCurrentTab='fn';
+
+function dfSetTab(tab){
+  dfCurrentTab=tab;
+  document.getElementById('df-panel-fn').style.display=tab==='fn'?'block':'none';
+  document.getElementById('df-panel-disc').style.display=tab==='disc'?'block':'none';
+  document.getElementById('df-tab-fn').className=tab==='fn'?'btn-primary':'btn-ghost';
+  document.getElementById('df-tab-disc').className=tab==='disc'?'btn-primary':'btn-ghost';
+  document.getElementById('df-tab-fn').style.flex='1';
+  document.getElementById('df-tab-fn').style.minWidth='160px';
+  document.getElementById('df-tab-disc').style.flex='1';
+  document.getElementById('df-tab-disc').style.minWidth='160px';
+}
+
+function toggleDfFreal(){
+  var cb=document.getElementById('df-usar-freal');
+  document.getElementById('df-freal-wrap').style.display=cb.checked?'block':'none';
+}
+
+function parsePts(str){
+  return str.split(/[\s,]+/).filter(function(s){return s.trim()!=='';}).map(Number);
+}
+
+/* Fórmulas */
+function d1c(f,x,h){ return (f(x+h)-f(x-h))/(2*h); }
+function d2c(f,x,h){ return (f(x+h)-2*f(x)+f(x-h))/(h*h); }
+function d1prog2(f,x,h){ return (-f(x+2*h)+4*f(x+h)-3*f(x))/(2*h); }
+function d1reg2(f,x,h){ return (3*f(x)-4*f(x-h)+f(x-2*h))/(2*h); }
+
+function calcDifFinFn(){
+  var fnStr=document.getElementById('df-fn').value.trim();
+  var hVal=parseFloat(document.getElementById('df-h').value);
+  var xPts=parsePts(document.getElementById('df-xpts').value);
+  var useC1=document.getElementById('df-c1').checked;
+  var useC2=document.getElementById('df-c2').checked;
+  var useProg=document.getElementById('df-prog2').checked;
+  var useReg=document.getElementById('df-reg2').checked;
+  var usarFreal=document.getElementById('df-usar-freal').checked;
+  var frealStr=usarFreal?document.getElementById('df-freal').value.trim():'';
+
+  var resEl=document.getElementById('df-fn-results');
+  var errEl=document.getElementById('df-fn-err');
+
+  var f;
+  try{ f=parseF(fnStr); f(xPts[0]); }catch(e){
+    errEl.textContent='f(x) inválida: '+e.message; errEl.style.display='block';
+    resEl.style.display='none'; return;
+  }
+  var freal=null;
+  if(usarFreal){
+    try{ freal=parseF(frealStr); freal(xPts[0]); }catch(e){
+      errEl.textContent='f\'(x) exacta inválida: '+e.message; errEl.style.display='block';
+      resEl.style.display='none'; return;
+    }
+  }
+  errEl.style.display='none';
+  resEl.style.display='block';
+
+  // Construir cabecera
+  var cols=['x','f(x)'];
+  if(useC1) cols.push("f'(x) central");
+  if(useC2) cols.push("f''(x) central");
+  if(useProg) cols.push("f'(x) progr. O(h²)");
+  if(useReg) cols.push("f'(x) regr. O(h²)");
+  if(freal) cols.push('f\'(x) exacta','Error |cent−exacta|');
+
+  document.getElementById('df-fn-thead').innerHTML=cols.map(function(c){return '<th>'+c+'</th>';}).join('');
+
+  var rowsData=[];
+  var xArr=[], c1Arr=[], c2Arr=[], prog2Arr=[], reg2Arr=[], frealArr=[];
+
+  var tbody=document.getElementById('df-fn-tbody');
+  tbody.innerHTML='';
+
+  xPts.forEach(function(x){
+    var fx=f(x);
+    var row=[x.toFixed(4), fx.toFixed(8)];
+    var c1Val=null,c2Val=null,progVal=null,regVal=null,frVal=null;
+
+    if(useC1){ c1Val=d1c(f,x,hVal); row.push(c1Val.toFixed(8)); }
+    if(useC2){ c2Val=d2c(f,x,hVal); row.push(c2Val.toFixed(8)); }
+    if(useProg){ progVal=d1prog2(f,x,hVal); row.push(progVal.toFixed(8)); }
+    if(useReg){ regVal=d1reg2(f,x,hVal); row.push(regVal.toFixed(8)); }
+    if(freal){
+      frVal=freal(x);
+      var errAbs=c1Val!==null?Math.abs(c1Val-frVal):null;
+      row.push(frVal.toFixed(8), errAbs!==null?errAbs.toExponential(4):'—');
+      frealArr.push(frVal);
+    }
+    if(c1Val!==null) c1Arr.push(c1Val);
+    if(c2Val!==null) c2Arr.push(c2Val);
+    if(progVal!==null) prog2Arr.push(progVal);
+    if(regVal!==null) reg2Arr.push(regVal);
+    xArr.push(x);
+
+    var tr=document.createElement('tr');
+    tr.innerHTML=row.map(function(v){return '<td>'+v+'</td>';}).join('');
+    tbody.appendChild(tr);
+  });
+
+  drawDfFnChart(xArr,c1Arr,c2Arr,prog2Arr,reg2Arr,frealArr,useC1,useC2,useProg,useReg,freal!==null);
+}
+
+function drawDfFnChart(xs,c1,c2,prog,reg,fr,useC1,useC2,useProg,useReg,hasFreal){
+  var ctx=document.getElementById('df-fn-chart').getContext('2d');
+  if(dfFnChart){dfFnChart.destroy();}
+  var datasets=[];
+  if(useC1&&c1.length) datasets.push({label:"f'(x) central",data:c1,borderColor:'#7c6af7',borderWidth:2,pointRadius:3,pointBackgroundColor:'#7c6af7',tension:0.3,fill:false});
+  if(useC2&&c2.length) datasets.push({label:"f''(x) central",data:c2,borderColor:'#f87171',borderWidth:1.5,pointRadius:3,pointBackgroundColor:'#f87171',borderDash:[4,3],tension:0.3,fill:false});
+  if(useProg&&prog.length) datasets.push({label:"f'(x) prog.",data:prog,borderColor:'#4ade80',borderWidth:1.5,pointRadius:3,pointBackgroundColor:'#4ade80',borderDash:[6,3],tension:0.3,fill:false});
+  if(useReg&&reg.length) datasets.push({label:"f'(x) reg.",data:reg,borderColor:'#fbbf24',borderWidth:1.5,pointRadius:3,pointBackgroundColor:'#fbbf24',borderDash:[2,3],tension:0.3,fill:false});
+  if(hasFreal&&fr.length) datasets.push({label:"f'(x) exacta",data:fr,borderColor:'rgba(255,255,255,0.4)',borderWidth:1,pointRadius:2,pointBackgroundColor:'rgba(255,255,255,0.4)',tension:0.3,fill:false});
+
+  dfFnChart=new Chart(ctx,{
+    type:'line',
+    data:{labels:xs.map(function(x){return x.toFixed(3);}),datasets:datasets},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{
+        x:{title:{display:true,text:'x',color:'#5a6075'},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075'}},
+        y:{title:{display:true,text:'Valor derivada',color:'#5a6075'},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075'}}
+      }}
+  });
+
+  var lgd=document.getElementById('df-fn-legend');
+  var items=[];
+  if(useC1) items.push(['#7c6af7',"f'(x) central O(h²)"]);
+  if(useC2) items.push(['#f87171',"f''(x) central O(h²)"]);
+  if(useProg) items.push(['#4ade80',"f'(x) progresiva O(h²)"]);
+  if(useReg) items.push(['#fbbf24',"f'(x) regresiva O(h²)"]);
+  if(hasFreal) items.push(['rgba(255,255,255,0.4)',"f'(x) exacta"]);
+  lgd.innerHTML=items.map(function(it){
+    return '<div class="legend-item"><div class="legend-line" style="background:'+it[0]+'"></div>'+it[1]+'</div>';
+  }).join('');
+}
+
+/* ── DATOS DISCRETOS ── */
+function calcDifFinDisc(){
+  var tArr=parsePts(document.getElementById('df-t').value);
+  var xArr=parsePts(document.getElementById('df-x').value);
+  var errEl=document.getElementById('df-disc-err');
+  var resEl=document.getElementById('df-disc-results');
+
+  if(tArr.length!==xArr.length||tArr.length<2){
+    errEl.textContent='La cantidad de valores de t y x debe ser igual y mayor a 1.';
+    errEl.style.display='block'; resEl.style.display='none'; return;
+  }
+  errEl.style.display='none';
+
+  var n=tArr.length;
+  var v=new Array(n).fill(0);
+  var a=new Array(n).fill(0);
+  var vMet=[], aMet=[];
+
+  for(var i=0;i<n;i++){
+    if(i===0){ v[i]=(xArr[1]-xArr[0])/(tArr[1]-tArr[0]); vMet.push('progresiva'); }
+    else if(i===n-1){ v[i]=(xArr[i]-xArr[i-1])/(tArr[i]-tArr[i-1]); vMet.push('regresiva'); }
+    else{ v[i]=(xArr[i+1]-xArr[i-1])/(tArr[i+1]-tArr[i-1]); vMet.push('central'); }
+  }
+  for(var i=0;i<n;i++){
+    if(i===0){ a[i]=(v[1]-v[0])/(tArr[1]-tArr[0]); aMet.push('progresiva'); }
+    else if(i===n-1){ a[i]=(v[i]-v[i-1])/(tArr[i]-tArr[i-1]); aMet.push('regresiva'); }
+    else{ a[i]=(v[i+1]-v[i-1])/(tArr[i+1]-tArr[i-1]); aMet.push('central'); }
+  }
+
+  resEl.style.display='block';
+
+  var vMax=Math.max.apply(null,v.map(Math.abs));
+  var aMax=Math.max.apply(null,a.map(Math.abs));
+  document.getElementById('df-disc-metrics').innerHTML=
+    mCard('Vel. máxima |v|', vMax.toFixed(4), '')+
+    mCard('Acel. máxima |a|', aMax.toFixed(4), '')+
+    mCard('Puntos', n, '');
+
+  var tbody=document.getElementById('df-disc-tbody');
+  tbody.innerHTML=tArr.map(function(_,i){
+    return '<tr>'
+      +'<td>'+tArr[i]+'</td>'
+      +'<td>'+xArr[i]+'</td>'
+      +'<td>'+v[i].toFixed(4)+'</td>'
+      +'<td>'+a[i].toFixed(4)+'</td>'
+      +'<td style="font-size:10px;color:var(--text3)">'+vMet[i]+'</td>'
+      +'<td style="font-size:10px;color:var(--text3)">'+aMet[i]+'</td>'
+      +'</tr>';
+  }).join('');
+
+  drawDfDiscChart(tArr,xArr,v,a);
+}
+
+function drawDfDiscChart(t,x,v,a){
+  var ctx=document.getElementById('df-disc-chart').getContext('2d');
+  if(dfDiscChart){dfDiscChart.destroy();}
+
+  dfDiscChart=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:t,
+      datasets:[
+        {label:'x(t)',data:x,borderColor:'#7c6af7',borderWidth:2,pointRadius:4,pointBackgroundColor:'#7c6af7',tension:0.3,fill:false,yAxisID:'y'},
+        {label:'v(t)',data:v,borderColor:'#4ade80',borderWidth:2,pointRadius:3,pointBackgroundColor:'#4ade80',borderDash:[5,3],tension:0.3,fill:false,yAxisID:'y2'},
+        {label:'a(t)',data:a,borderColor:'#f87171',borderWidth:1.5,pointRadius:3,pointBackgroundColor:'#f87171',borderDash:[2,3],tension:0.3,fill:false,yAxisID:'y2'}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{title:{display:true,text:'t',color:'#5a6075'},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075'}},
+        y:{title:{display:true,text:'x(t)',color:'#7c6af7'},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#7c6af7'}},
+        y2:{position:'right',title:{display:true,text:'v / a',color:'#5a6075'},grid:{display:false},ticks:{color:'#5a6075'}}
+      }
+    }
+  });
+
+  document.getElementById('df-disc-legend').innerHTML=
+    '<div class="legend-item"><div class="legend-line" style="background:#7c6af7"></div>x(t) — posición (eje izq.)</div>'+
+    '<div class="legend-item"><div class="legend-line" style="background:#4ade80;height:1.5px"></div>v(t) — velocidad (eje der.)</div>'+
+    '<div class="legend-item"><div class="legend-line" style="background:#f87171;height:1.5px"></div>a(t) — aceleración (eje der.)</div>';
+}
+
+function clearDifFin(){
+  document.getElementById('df-fn-results').style.display='none';
+  document.getElementById('df-disc-results').style.display='none';
+  document.getElementById('df-fn-err').style.display='none';
+  document.getElementById('df-disc-err').style.display='none';
+  if(dfFnChart){dfFnChart.destroy();dfFnChart=null;}
+  if(dfDiscChart){dfDiscChart.destroy();dfDiscChart=null;}
+}
 </script>
 </body>
 </html>
