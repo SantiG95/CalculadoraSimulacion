@@ -470,6 +470,10 @@
   <div class="method-item" id="menu-newtoncotes" onclick="showPage('newtoncotes')">
     <span class="method-num">07</span> Newton-Cotes
   </div>
+  <div class="category-label">Simulación estocástica</div>
+  <div class="method-item" id="menu-montecarlo" onclick="showPage('montecarlo')">
+    <span class="method-num">08</span> Monte Carlo
+  </div>
 </div>
 
 <div id="layout">
@@ -1216,6 +1220,364 @@
       </div>
     </div>
 
+    <!-- MONTE CARLO -->
+    <div id="page-montecarlo" class="page">
+      <div class="page-header">
+        <h2>Simulación Monte Carlo</h2>
+        <p>Métodos estocásticos para integración, estimación de áreas, integrales dobles, y simulaciones financieras/orbitales</p>
+      </div>
+
+      <!-- Selector de sub-método -->
+      <div class="card">
+        <div class="card-title">Seleccionar método</div>
+        <div class="field-group">
+          <label>Tipo de simulación Monte Carlo</label>
+          <select id="mc-tipo" onchange="mcCambiarTipo()">
+            <option value="pi">Aproximación de π (Rechazo en cuadrado de lado 2)</option>
+            <option value="integral1">Integración simple — Error máximo con N calculado (Muestreo aleatorio)</option>
+            <option value="integral2">Integración simple — Muestra fija N</option>
+            <option value="integral-doble">Integral doble ∬f(x,y) dy dx</option>
+            <option value="curvas">Área entre curvas f(x) y g(x) (Rechazo gráfico)</option>
+            <option value="sinx-x">Integral de sin(x)/x (función especial)</option>
+            <option value="orbital">Simulador orbital — Probabilidad de éxito</option>
+            <option value="financiero">Simulador financiero — Call Europea + VaR</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- SUB-PANELES -->
+
+      <!-- 1. PI -->
+      <div id="mc-panel-pi" class="mc-panel">
+        <div class="card">
+          <div class="card-title">Parámetros — Aproximación de π</div>
+          <div class="grid-2">
+            <div class="field-group">
+              <label>N — cantidad de puntos</label>
+              <input id="mc-pi-n" type="number" value="10000" min="100" max="5000000"/>
+            </div>
+          </div>
+          <div class="fn-hint">Genera N puntos uniformes en [−1,1]×[−1,1]. Los que caen dentro del círculo de radio 1 son éxitos. π ≈ 4 × (éxitos / N).</div>
+          <div style="display:flex;gap:10px;margin-top:14px">
+            <button class="btn-primary" onclick="mcCalcPi()">Calcular π</button>
+            <button class="btn-ghost" onclick="mcLimpiar()">Limpiar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. INTEGRAL CON ERROR MÁXIMO -->
+      <div id="mc-panel-integral1" class="mc-panel" style="display:none">
+        <div class="card">
+          <div class="card-title">Parámetros — Integral con N calculado (Error máximo)</div>
+          <div class="field-group" style="margin-bottom:12px">
+            <label>f(x)</label>
+            <div class="fn-input-wrap">
+              <input id="mc-i1-fn" type="text" value="Math.exp(-x*x)" placeholder="ej: Math.exp(-x*x)" oninput="validateFn('mc-i1-fn','mc-i1-fn-status')"/>
+              <span class="fn-status" id="mc-i1-fn-status" style="color:var(--green)">OK</span>
+            </div>
+            <div class="fn-hint">Alias: sin(x) · cos(x) · exp(x) · log(x) · sqrt(x) · PI · E · x**2</div>
+          </div>
+          <div class="grid-4">
+            <div class="field-group">
+              <label>a — límite inferior</label>
+              <input id="mc-i1-a" type="number" value="0" step="any"/>
+            </div>
+            <div class="field-group">
+              <label>b — límite superior</label>
+              <input id="mc-i1-b" type="number" value="1" step="any"/>
+            </div>
+            <div class="field-group">
+              <label>Confianza</label>
+              <select id="mc-i1-conf">
+                <option value="0.90">90%</option>
+                <option value="0.95" selected>95%</option>
+                <option value="0.997">99.7%</option>
+                <option value="0.99">99%</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label>Error máximo permitido</label>
+              <input id="mc-i1-err" type="number" value="0.01" step="any" min="0.000001"/>
+            </div>
+          </div>
+          <div class="fn-hint">Muestra piloto de 1000 puntos → estima σ → calcula N necesario → ejecuta integración con ese N.</div>
+          <div style="display:flex;gap:10px;margin-top:14px">
+            <button class="btn-primary" onclick="mcCalcIntegral1()">Calcular</button>
+            <button class="btn-ghost" onclick="mcLimpiar()">Limpiar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. INTEGRAL MUESTRA FIJA -->
+      <div id="mc-panel-integral2" class="mc-panel" style="display:none">
+        <div class="card">
+          <div class="card-title">Parámetros — Integral simple con N fijo</div>
+          <div class="field-group" style="margin-bottom:12px">
+            <label>f(x)</label>
+            <div class="fn-input-wrap">
+              <input id="mc-i2-fn" type="text" value="Math.sqrt(x)" placeholder="ej: Math.sqrt(x)" oninput="validateFn('mc-i2-fn','mc-i2-fn-status')"/>
+              <span class="fn-status" id="mc-i2-fn-status" style="color:var(--green)">OK</span>
+            </div>
+            <div class="fn-hint">Alias: sin(x) · cos(x) · exp(x) · log(x) · sqrt(x) · PI · E · x**2</div>
+          </div>
+          <div class="grid-4">
+            <div class="field-group">
+              <label>a — límite inferior</label>
+              <input id="mc-i2-a" type="number" value="1" step="any"/>
+            </div>
+            <div class="field-group">
+              <label>b — límite superior</label>
+              <input id="mc-i2-b" type="number" value="4" step="any"/>
+            </div>
+            <div class="field-group">
+              <label>N — cantidad de puntos</label>
+              <input id="mc-i2-n" type="number" value="5000" min="100" max="5000000"/>
+            </div>
+            <div class="field-group">
+              <label>Confianza IC</label>
+              <select id="mc-i2-conf">
+                <option value="0.90">90%</option>
+                <option value="0.95" selected>95%</option>
+                <option value="0.99">99%</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:14px">
+            <button class="btn-primary" onclick="mcCalcIntegral2()">Calcular</button>
+            <button class="btn-ghost" onclick="mcLimpiar()">Limpiar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. INTEGRAL DOBLE -->
+      <div id="mc-panel-integral-doble" class="mc-panel" style="display:none">
+        <div class="card">
+          <div class="card-title">Parámetros — Integral doble ∬f(x,y) dy dx</div>
+          <div class="field-group" style="margin-bottom:12px">
+            <label>f(x, y)</label>
+            <div class="fn-input-wrap">
+              <input id="mc-id-fn" type="text" value="Math.exp(x+y)" placeholder="ej: Math.exp(x+y)" oninput="validateFnXY('mc-id-fn','mc-id-fn-status')"/>
+              <span class="fn-status" id="mc-id-fn-status" style="color:var(--green)">OK</span>
+            </div>
+            <div class="fn-hint">Usar x e y como variables. Alias: sin(x) · cos(y) · exp(x+y) · sqrt(x*y) · x**2 + y**2</div>
+          </div>
+          <div class="grid-4">
+            <div class="field-group">
+              <label>x₁ — límite inf. x</label>
+              <input id="mc-id-x1" type="number" value="1" step="any"/>
+            </div>
+            <div class="field-group">
+              <label>x₂ — límite sup. x</label>
+              <input id="mc-id-x2" type="number" value="2" step="any"/>
+            </div>
+            <div class="field-group">
+              <label>y₁ — límite inf. y</label>
+              <input id="mc-id-y1" type="number" value="1" step="any"/>
+            </div>
+            <div class="field-group">
+              <label>y₂ — límite sup. y</label>
+              <input id="mc-id-y2" type="number" value="3" step="any"/>
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="field-group">
+              <label>N — cantidad de puntos</label>
+              <input id="mc-id-n" type="number" value="50000" min="1000" max="5000000"/>
+            </div>
+            <div class="field-group">
+              <label>Confianza IC</label>
+              <select id="mc-id-conf">
+                <option value="0.90" selected>90%</option>
+                <option value="0.95">95%</option>
+                <option value="0.99">99%</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:14px">
+            <button class="btn-primary" onclick="mcCalcIntegralDoble()">Calcular</button>
+            <button class="btn-ghost" onclick="mcLimpiar()">Limpiar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. CURVAS -->
+      <div id="mc-panel-curvas" class="mc-panel" style="display:none">
+        <div class="card">
+          <div class="card-title">Parámetros — Área entre curvas (Rechazo)</div>
+          <div class="field-group" style="margin-bottom:10px">
+            <label>f(x) — curva techo</label>
+            <div class="fn-input-wrap">
+              <input id="mc-cv-f" type="text" value="Math.sqrt(x)" placeholder="ej: Math.sqrt(x)" oninput="validateFn('mc-cv-f','mc-cv-f-status')"/>
+              <span class="fn-status" id="mc-cv-f-status" style="color:var(--green)">OK</span>
+            </div>
+          </div>
+          <div class="field-group" style="margin-bottom:12px">
+            <label>g(x) — curva piso</label>
+            <div class="fn-input-wrap">
+              <input id="mc-cv-g" type="text" value="x**2" placeholder="ej: x**2" oninput="validateFn('mc-cv-g','mc-cv-g-status')"/>
+              <span class="fn-status" id="mc-cv-g-status" style="color:var(--green)">OK</span>
+            </div>
+          </div>
+          <div class="grid-4">
+            <div class="field-group">
+              <label>a — inicio intervalo</label>
+              <input id="mc-cv-a" type="number" value="0" step="any"/>
+            </div>
+            <div class="field-group">
+              <label>b — fin intervalo</label>
+              <input id="mc-cv-b" type="number" value="1" step="any"/>
+            </div>
+            <div class="field-group">
+              <label>N — puntos</label>
+              <input id="mc-cv-n" type="number" value="10000" min="100" max="2000000"/>
+            </div>
+          </div>
+          <div class="fn-hint">Los límites en Y se calculan automáticamente a partir de f(x) y g(x) en el intervalo.</div>
+          <div style="display:flex;gap:10px;margin-top:14px">
+            <button class="btn-primary" onclick="mcCalcCurvas()">Calcular área</button>
+            <button class="btn-ghost" onclick="mcLimpiar()">Limpiar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6. SIN(X)/X -->
+      <div id="mc-panel-sinx-x" class="mc-panel" style="display:none">
+        <div class="card">
+          <div class="card-title">Parámetros — Integral de sin(x)/x (función Si)</div>
+          <div class="grid-4">
+            <div class="field-group">
+              <label>a — límite inferior (> 0)</label>
+              <input id="mc-sx-a" type="number" value="0.0001" step="any" min="0.0001"/>
+            </div>
+            <div class="field-group">
+              <label>b — límite superior</label>
+              <input id="mc-sx-b" type="number" value="3.14159265" step="any"/>
+            </div>
+            <div class="field-group">
+              <label>N — puntos</label>
+              <input id="mc-sx-n" type="number" value="10000" min="100" max="5000000"/>
+            </div>
+            <div class="field-group">
+              <label>Confianza IC</label>
+              <select id="mc-sx-conf">
+                <option value="0.90">90%</option>
+                <option value="0.95" selected>95%</option>
+                <option value="0.99">99%</option>
+              </select>
+            </div>
+          </div>
+          <div class="fn-hint">Estima ∫sin(x)/x dx. Nota: si a muy cercano a 0, se usa el límite L'Hôpital (sin(x)/x → 1).</div>
+          <div style="display:flex;gap:10px;margin-top:14px">
+            <button class="btn-primary" onclick="mcCalcSinxX()">Calcular</button>
+            <button class="btn-ghost" onclick="mcLimpiar()">Limpiar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 7. ORBITAL -->
+      <div id="mc-panel-orbital" class="mc-panel" style="display:none">
+        <div class="card">
+          <div class="card-title">Parámetros — Simulador de inserción orbital</div>
+          <div class="grid-4">
+            <div class="field-group">
+              <label>ΔV nominal (m/s)</label>
+              <input id="mc-orb-dv" type="number" value="500" step="any"/>
+            </div>
+            <div class="field-group">
+              <label>σ(ΔV) — desv. estándar</label>
+              <input id="mc-orb-sdv" type="number" value="5" step="any" min="0"/>
+            </div>
+            <div class="field-group">
+              <label>t nominal — tiempo encendido (s)</label>
+              <input id="mc-orb-t" type="number" value="120" step="any"/>
+            </div>
+            <div class="field-group">
+              <label>σ(t) — desv. estándar</label>
+              <input id="mc-orb-st" type="number" value="1.5" step="any" min="0"/>
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="field-group">
+              <label>N — simulaciones</label>
+              <input id="mc-orb-n" type="number" value="100000" min="1000" max="5000000"/>
+            </div>
+            <div class="field-group">
+              <label>Umbral de éxito (% del nominal)</label>
+              <input id="mc-orb-umbral" type="number" value="95" min="1" max="100" step="0.1"/>
+            </div>
+          </div>
+          <div class="fn-hint">Simula ΔV y t con distribución normal. Éxito: impulso total (ΔV × t) ≥ umbral% del nominal. Calcula probabilidad de éxito y margen adicional de ΔV para 99%.</div>
+          <div style="display:flex;gap:10px;margin-top:14px">
+            <button class="btn-primary" onclick="mcCalcOrbital()">Simular</button>
+            <button class="btn-ghost" onclick="mcLimpiar()">Limpiar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 8. FINANCIERO -->
+      <div id="mc-panel-financiero" class="mc-panel" style="display:none">
+        <div class="card">
+          <div class="card-title">Parámetros — Opción Call Europea (Black-Scholes + VaR)</div>
+          <div class="grid-4">
+            <div class="field-group">
+              <label>S₀ — Precio actual</label>
+              <input id="mc-fin-s0" type="number" value="100" step="any" min="0.01"/>
+            </div>
+            <div class="field-group">
+              <label>K — Strike price</label>
+              <input id="mc-fin-k" type="number" value="105" step="any" min="0.01"/>
+            </div>
+            <div class="field-group">
+              <label>T — Tiempo (años)</label>
+              <input id="mc-fin-t" type="number" value="1" step="any" min="0.01"/>
+            </div>
+            <div class="field-group">
+              <label>r — Tasa libre de riesgo</label>
+              <input id="mc-fin-r" type="number" value="0.05" step="any" min="0"/>
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="field-group">
+              <label>σ — Volatilidad anual</label>
+              <input id="mc-fin-sigma" type="number" value="0.2" step="any" min="0.001"/>
+            </div>
+            <div class="field-group">
+              <label>N — simulaciones</label>
+              <input id="mc-fin-n" type="number" value="100000" min="1000" max="5000000"/>
+            </div>
+          </div>
+          <div class="fn-hint">Simula ST = S₀·exp((r−σ²/2)T + σ√T·Z). Payoff = max(ST−K, 0). Precio MC = e^(−rT)·E[payoff]. VaR 99% a 1 día sobre la acción.</div>
+          <div style="display:flex;gap:10px;margin-top:14px">
+            <button class="btn-primary" onclick="mcCalcFinanciero()">Simular</button>
+            <button class="btn-ghost" onclick="mcLimpiar()">Limpiar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- RESULTADOS COMUNES -->
+      <div id="mc-err" class="err-box"></div>
+
+      <div id="mc-results" style="display:none">
+        <div class="metrics" id="mc-metrics"></div>
+
+        <div class="card" id="mc-chart-card" style="display:none">
+          <div class="card-title" id="mc-chart-title">Gráfica</div>
+          <div class="chart-wrap" style="height:340px"><canvas id="mc-chart"></canvas></div>
+          <div class="legend-row" id="mc-legend"></div>
+        </div>
+
+        <div class="card" id="mc-table-card" style="display:none">
+          <div class="card-title" id="mc-table-title">Tabla de resultados</div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr id="mc-thead"></tr></thead>
+              <tbody id="mc-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 <script>
@@ -1235,7 +1597,7 @@ function closeMenu(){
 }
 
 /* ─── PAGES ─── */
-var pages=['welcome','biseccion','puntofijo','aitken','newton','lagrange','diffinitas','newtoncotes'];
+var pages=['welcome','biseccion','puntofijo','aitken','newton','lagrange','diffinitas','newtoncotes','montecarlo'];
 function showPage(name){
   pages.forEach(function(p){
     var el=document.getElementById('page-'+p);
@@ -2783,6 +3145,657 @@ function clearNewtonCotes(){
   document.getElementById('nc-n-hint').style.display='none';
   if(ncChart){ncChart.destroy();ncChart=null;}
 }
+
+/* ════════════════════════════════════════════════════
+   MONTE CARLO
+   ════════════════════════════════════════════════════ */
+
+var mcChart = null;
+
+/* ─── Utilidades ─── */
+function parseFXY(s){
+  s=s.replace(/\bsin\b/g,'Math.sin').replace(/\bcos\b/g,'Math.cos')
+     .replace(/\btan\b/g,'Math.tan').replace(/\bexp\b/g,'Math.exp')
+     .replace(/\bsqrt\b/g,'Math.sqrt').replace(/\blog\b/g,'Math.log')
+     .replace(/\bpow\b/g,'Math.pow').replace(/\babs\b/g,'Math.abs')
+     .replace(/\bPI\b/g,'Math.PI').replace(/\bE\b/g,'Math.E');
+  return new Function('x','y', 'return ('+s+');');
+}
+
+function validateFnXY(inId, statusId){
+  var el=document.getElementById(inId);
+  var st=document.getElementById(statusId);
+  try{ parseFXY(el.value)(0,0); st.textContent='OK'; st.style.color='var(--green)'; }
+  catch(e){ st.textContent='ERR'; st.style.color='var(--red)'; }
+}
+
+function mcRand(n){ var a=new Float64Array(n); for(var i=0;i<n;i++) a[i]=Math.random(); return a; }
+
+function mcNormal(n){
+  // Box-Muller
+  var a=new Float64Array(n);
+  for(var i=0;i<n;i+=2){
+    var u1=Math.random(), u2=Math.random();
+    var r=Math.sqrt(-2*Math.log(u1));
+    a[i]=r*Math.cos(2*Math.PI*u2);
+    if(i+1<n) a[i+1]=r*Math.sin(2*Math.PI*u2);
+  }
+  return a;
+}
+
+function zConf(c){
+  var m={0.90:1.645,0.95:1.96,0.99:2.576,0.997:2.968};
+  return m[c]||1.96;
+}
+
+function mcMCard(label,val,cls){
+  return '<div class="metric"><div class="metric-label">'+label+'</div><div class="metric-value'+(cls?' '+cls:'')+'">'+val+'</div></div>';
+}
+
+function mcShowErr(msg){ var e=document.getElementById('mc-err'); e.textContent=msg; e.style.display='block'; }
+function mcHideErr(){ document.getElementById('mc-err').style.display='none'; }
+
+function mcShowResults(metricsHtml, showChart, showTable){
+  document.getElementById('mc-metrics').innerHTML=metricsHtml;
+  document.getElementById('mc-results').style.display='block';
+  document.getElementById('mc-chart-card').style.display=showChart?'block':'none';
+  document.getElementById('mc-table-card').style.display=showTable?'block':'none';
+}
+
+function mcDestroyChart(){
+  if(mcChart){ mcChart.destroy(); mcChart=null; }
+}
+
+/* ─── Cambio de tipo ─── */
+function mcCambiarTipo(){
+  var tipo=document.getElementById('mc-tipo').value;
+  var paneles=['pi','integral1','integral2','integral-doble','curvas','sinx-x','orbital','financiero'];
+  paneles.forEach(function(p){
+    document.getElementById('mc-panel-'+p).style.display=(p===tipo?'block':'none');
+  });
+  mcLimpiar();
+}
+
+function mcLimpiar(){
+  mcHideErr();
+  document.getElementById('mc-results').style.display='none';
+  mcDestroyChart();
+}
+
+/* ─── 1. PI ─── */
+function mcCalcPi(){
+  mcHideErr();
+  mcDestroyChart();
+  var n=parseInt(document.getElementById('mc-pi-n').value);
+  if(isNaN(n)||n<100){ mcShowErr('N debe ser al menos 100.'); return; }
+
+  var x=[],y=[],dentro=[];
+  var exitos=0;
+  for(var i=0;i<n;i++){
+    var xi=Math.random()*2-1, yi=Math.random()*2-1;
+    x.push(xi); y.push(yi);
+    var d=(xi*xi+yi*yi<=1);
+    dentro.push(d);
+    if(d) exitos++;
+  }
+  var piEst=4*(exitos/n);
+  var error=Math.abs(piEst-Math.PI);
+
+  var metrics=
+    mcMCard('π estimado', piEst.toFixed(6), 'ok')+
+    mcMCard('π real', Math.PI.toFixed(6), '')+
+    mcMCard('Error absoluto', error.toFixed(6), error<0.01?'ok':'warn')+
+    mcMCard('N total', n, '')+
+    mcMCard('Éxitos (dentro)', exitos, '')+
+    mcMCard('Tasa de éxito', (exitos/n*100).toFixed(2)+'%', '');
+  mcShowResults(metrics, true, false);
+  document.getElementById('mc-chart-title').textContent='Dispersión de puntos — Aproximación de π';
+
+  // Gráfico scatter (máx 5000 pts para rendimiento)
+  var maxPts=Math.min(n,5000);
+  var xIn=[],yIn=[],xOut=[],yOut=[];
+  for(var i=0;i<maxPts;i++){
+    if(dentro[i]){xIn.push(x[i]);yIn.push(y[i]);}
+    else{xOut.push(x[i]);yOut.push(y[i]);}
+  }
+
+  // Círculo de referencia
+  var circX=[],circY=[];
+  for(var a=0;a<=360;a+=2){ circX.push(Math.cos(a*Math.PI/180)); circY.push(Math.sin(a*Math.PI/180)); }
+
+  var ctx=document.getElementById('mc-chart').getContext('2d');
+  mcChart=new Chart(ctx,{
+    type:'scatter',
+    data:{datasets:[
+      {label:'Dentro (éxito)',data:xIn.map(function(v,i){return{x:v,y:yIn[i]};}),
+       backgroundColor:'rgba(124,106,247,0.5)',pointRadius:1.5},
+      {label:'Fuera (rechazo)',data:xOut.map(function(v,i){return{x:v,y:yOut[i]};}),
+       backgroundColor:'rgba(248,113,113,0.35)',pointRadius:1.5},
+      {label:'Círculo r=1',data:circX.map(function(v,i){return{x:v,y:circY[i]};}),
+       type:'line',borderColor:'#4ade80',borderWidth:1.5,pointRadius:0,fill:false}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{enabled:false}},
+      scales:{
+        x:{min:-1.1,max:1.1,title:{display:true,text:'x',color:'#5a6075'},
+           grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075'}},
+        y:{min:-1.1,max:1.1,title:{display:true,text:'y',color:'#5a6075'},
+           grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075'}}
+      }}
+  });
+  document.getElementById('mc-legend').innerHTML=
+    '<div class="legend-item"><div class="legend-dot" style="background:rgba(124,106,247,0.7)"></div>Dentro (éxito)</div>'+
+    '<div class="legend-item"><div class="legend-dot" style="background:rgba(248,113,113,0.6)"></div>Fuera (rechazo)</div>'+
+    '<div class="legend-item"><div class="legend-line" style="background:#4ade80"></div>Círculo r=1</div>';
+}
+
+/* ─── 2. INTEGRAL CON N CALCULADO ─── */
+function mcCalcIntegral1(){
+  mcHideErr();
+  mcDestroyChart();
+  var fnStr=document.getElementById('mc-i1-fn').value.trim();
+  var a=parseFloat(document.getElementById('mc-i1-a').value);
+  var b=parseFloat(document.getElementById('mc-i1-b').value);
+  var conf=parseFloat(document.getElementById('mc-i1-conf').value);
+  var errMax=parseFloat(document.getElementById('mc-i1-err').value);
+  if(isNaN(a)||isNaN(b)||a>=b){ mcShowErr('Verificá que a < b.'); return; }
+  if(isNaN(errMax)||errMax<=0){ mcShowErr('Error máximo debe ser positivo.'); return; }
+  var f; try{ f=parseF(fnStr); f(a); }catch(e){ mcShowErr('f(x) inválida: '+e.message); return; }
+
+  // Muestra piloto
+  var nP=1000;
+  var yPiloto=[]; for(var i=0;i<nP;i++) yPiloto.push(f(a+(b-a)*Math.random()));
+  var meanP=yPiloto.reduce(function(s,v){return s+v;},0)/nP;
+  var varP=yPiloto.reduce(function(s,v){return s+(v-meanP)*(v-meanP);},0)/(nP-1);
+  var sigmaEst=Math.sqrt(varP);
+
+  var z=zConf(conf);
+  var n=Math.ceil(Math.pow((z*sigmaEst*(b-a))/errMax,2));
+  n=Math.max(n,100);
+  if(n>5000000){ mcShowErr('N calculado ('+n+') es demasiado grande. Aumentá el error máximo o reducí la confianza.'); return; }
+
+  // Integración con N calculado
+  var vals=[]; for(var i=0;i<n;i++) vals.push(f(a+(b-a)*Math.random()));
+  var mean=vals.reduce(function(s,v){return s+v;},0)/n;
+  var integral=(b-a)*mean;
+  var varY=vals.reduce(function(s,v){return s+(v-mean)*(v-mean);},0)/(n-1);
+  var sigma=Math.sqrt(varY);
+  var errorEst=z*sigma*(b-a)/Math.sqrt(n);
+
+  var metrics=
+    mcMCard('∫f(x)dx ≈', integral.toFixed(8), 'ok')+
+    mcMCard('N calculado', n, '')+
+    mcMCard('σ estimada', sigmaEst.toFixed(6), '')+
+    mcMCard('Error estimado', errorEst.toFixed(8), 'warn')+
+    mcMCard('IC ('+Math.round(conf*100)+'%)', '['+((b-a)*mean-errorEst).toFixed(6)+', '+((b-a)*mean+errorEst).toFixed(6)+']', '')+
+    mcMCard('z ('+Math.round(conf*100)+'%)', z, '');
+  mcShowResults(metrics, true, false);
+  document.getElementById('mc-chart-title').textContent='Distribución de f(x) — muestra Monte Carlo';
+
+  var ctx=document.getElementById('mc-chart').getContext('2d');
+  // Histograma de vals (muestra reducida)
+  var samp=vals.slice(0,Math.min(vals.length,10000));
+  var minV=Math.min.apply(null,samp), maxV=Math.max.apply(null,samp);
+  var nbins=40, bw=(maxV-minV)/nbins, bins=new Array(nbins).fill(0);
+  samp.forEach(function(v){ var bi=Math.min(Math.floor((v-minV)/bw),nbins-1); bins[bi]++; });
+  var labels=bins.map(function(_,i){return (minV+i*bw).toFixed(4);});
+  mcChart=new Chart(ctx,{
+    type:'bar',
+    data:{labels:labels,datasets:[{label:'f(x) muestras',data:bins,
+      backgroundColor:'rgba(124,106,247,0.5)',borderColor:'rgba(124,106,247,0.8)',borderWidth:1}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{title:{display:true,text:'f(x)',color:'#5a6075'},grid:{color:'rgba(255,255,255,0.05)'},
+           ticks:{color:'#5a6075',maxTicksLimit:10}},
+        y:{title:{display:true,text:'Frecuencia',color:'#5a6075'},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075'}}
+      }}
+  });
+  document.getElementById('mc-legend').innerHTML=
+    '<div class="legend-item"><div class="legend-dot" style="background:rgba(124,106,247,0.7)"></div>Distribución de f(x) en la muestra</div>';
+}
+
+/* ─── 3. INTEGRAL MUESTRA FIJA ─── */
+function mcCalcIntegral2(){
+  mcHideErr();
+  mcDestroyChart();
+  var fnStr=document.getElementById('mc-i2-fn').value.trim();
+  var a=parseFloat(document.getElementById('mc-i2-a').value);
+  var b=parseFloat(document.getElementById('mc-i2-b').value);
+  var n=parseInt(document.getElementById('mc-i2-n').value);
+  var conf=parseFloat(document.getElementById('mc-i2-conf').value);
+  if(isNaN(a)||isNaN(b)||a>=b){ mcShowErr('Verificá que a < b.'); return; }
+  if(isNaN(n)||n<100){ mcShowErr('N debe ser al menos 100.'); return; }
+  var f; try{ f=parseF(fnStr); f(a); }catch(e){ mcShowErr('f(x) inválida: '+e.message); return; }
+
+  var vals=[]; for(var i=0;i<n;i++) vals.push(f(a+(b-a)*Math.random()));
+  var mean=vals.reduce(function(s,v){return s+v;},0)/n;
+  var integral=(b-a)*mean;
+  var varY=vals.reduce(function(s,v){return s+(v-mean)*(v-mean);},0)/(n-1);
+  var sigma=Math.sqrt(varY);
+  var z=zConf(conf);
+  var errorEst=z*sigma*(b-a)/Math.sqrt(n);
+  var desv=sigma*(b-a)/Math.sqrt(n);
+
+  var metrics=
+    mcMCard('∫f(x)dx ≈', integral.toFixed(8), 'ok')+
+    mcMCard('N', n, '')+
+    mcMCard('Media f(x)', mean.toFixed(8), '')+
+    mcMCard('Desv. estándar', desv.toFixed(8), '')+
+    mcMCard('Error estándar', (sigma/Math.sqrt(n)).toFixed(8), 'warn')+
+    mcMCard('IC ('+Math.round(conf*100)+'%)', '['+(integral-errorEst).toFixed(6)+', '+(integral+errorEst).toFixed(6)+']', '');
+  mcShowResults(metrics, true, false);
+  document.getElementById('mc-chart-title').textContent='f(x) vs puntos muestreados';
+
+  // Gráfico: función y puntos de muestra
+  var ctx=document.getElementById('mc-chart').getContext('2d');
+  var nSmooth=200, sx=[], sy=[];
+  for(var i=0;i<=nSmooth;i++){ var xi=a+(b-a)*i/nSmooth; sx.push(xi); sy.push(f(xi)); }
+  var maxPts=Math.min(n,800);
+  var scX=[],scY=[];
+  for(var i=0;i<maxPts;i++){
+    var xi=a+(b-a)*Math.random(); scX.push(xi); scY.push(f(xi));
+  }
+  mcChart=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:sx.map(function(v){return v.toFixed(4);}),
+      datasets:[
+        {label:'f(x)',data:sy,borderColor:'#7c6af7',borderWidth:2,pointRadius:0,tension:0.4,fill:false},
+        {label:'Área',data:sy.map(function(v,i){return sx[i]>=a&&sx[i]<=b?v:null;}),
+         borderColor:'transparent',backgroundColor:'rgba(124,106,247,0.15)',fill:'origin',pointRadius:0},
+        {label:'Muestras',data:(function(){
+           var pts=new Array(sx.length).fill(null);
+           scX.forEach(function(xi,k){
+             var closest=0,minD=Infinity;
+             for(var j=0;j<sx.length;j++){var d=Math.abs(sx[j]-xi);if(d<minD){minD=d;closest=j;}}
+             pts[closest]=scY[k];
+           });
+           return pts;
+         })(),type:'scatter',backgroundColor:'rgba(74,222,128,0.6)',pointRadius:3,showLine:false}
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{title:{display:true,text:'x',color:'#5a6075'},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075',maxTicksLimit:10}},
+        y:{title:{display:true,text:'f(x)',color:'#5a6075'},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075'}}
+      }}
+  });
+  document.getElementById('mc-legend').innerHTML=
+    '<div class="legend-item"><div class="legend-line" style="background:#7c6af7"></div>f(x)</div>'+
+    '<div class="legend-item"><div class="legend-dot" style="background:rgba(124,106,247,0.4);border-radius:0;width:18px;height:10px"></div>Área</div>'+
+    '<div class="legend-item"><div class="legend-dot" style="background:rgba(74,222,128,0.7)"></div>Puntos muestreados</div>';
+}
+
+/* ─── 4. INTEGRAL DOBLE ─── */
+function mcCalcIntegralDoble(){
+  mcHideErr();
+  mcDestroyChart();
+  var fnStr=document.getElementById('mc-id-fn').value.trim();
+  var x1=parseFloat(document.getElementById('mc-id-x1').value);
+  var x2=parseFloat(document.getElementById('mc-id-x2').value);
+  var y1=parseFloat(document.getElementById('mc-id-y1').value);
+  var y2=parseFloat(document.getElementById('mc-id-y2').value);
+  var n=parseInt(document.getElementById('mc-id-n').value);
+  var conf=parseFloat(document.getElementById('mc-id-conf').value);
+  if(isNaN(x1)||isNaN(x2)||x1>=x2){ mcShowErr('Verificá que x₁ < x₂.'); return; }
+  if(isNaN(y1)||isNaN(y2)||y1>=y2){ mcShowErr('Verificá que y₁ < y₂.'); return; }
+  if(isNaN(n)||n<1000){ mcShowErr('N debe ser al menos 1000.'); return; }
+  var fxy; try{ fxy=parseFXY(fnStr); fxy(x1,y1); }catch(e){ mcShowErr('f(x,y) inválida: '+e.message); return; }
+
+  var area=(x2-x1)*(y2-y1);
+  var vals=[];
+  for(var i=0;i<n;i++){
+    var xi=x1+(x2-x1)*Math.random();
+    var yi=y1+(y2-y1)*Math.random();
+    vals.push(fxy(xi,yi));
+  }
+  var mean=vals.reduce(function(s,v){return s+v;},0)/n;
+  var integral=area*mean;
+  var varY=vals.reduce(function(s,v){return s+(v-mean)*(v-mean);},0)/(n-1);
+  var sigma=Math.sqrt(varY);
+  var z=zConf(conf);
+  var errorEst=z*area*sigma/Math.sqrt(n);
+
+  var metrics=
+    mcMCard('∬f(x,y)dydx ≈', integral.toFixed(8), 'ok')+
+    mcMCard('N', n, '')+
+    mcMCard('Área rect.', area.toFixed(4), '')+
+    mcMCard('Media f(x,y)', mean.toFixed(8), '')+
+    mcMCard('σ', sigma.toFixed(6), '')+
+    mcMCard('Error estim.', errorEst.toFixed(8), 'warn')+
+    mcMCard('IC ('+Math.round(conf*100)+'%)', '['+(integral-errorEst).toFixed(6)+', '+(integral+errorEst).toFixed(6)+']', '');
+  mcShowResults(metrics, true, false);
+  document.getElementById('mc-chart-title').textContent='Distribución de f(x,y) — muestras Monte Carlo';
+
+  var ctx=document.getElementById('mc-chart').getContext('2d');
+  var samp=vals.slice(0,Math.min(vals.length,10000));
+  var minV=Math.min.apply(null,samp), maxV=Math.max.apply(null,samp);
+  var nbins=40, bw=(maxV-minV)/nbins||1, bins=new Array(nbins).fill(0);
+  samp.forEach(function(v){ var bi=Math.min(Math.floor((v-minV)/bw),nbins-1); bins[bi]++; });
+  var labels=bins.map(function(_,i){return (minV+i*bw).toFixed(3);});
+  mcChart=new Chart(ctx,{
+    type:'bar',
+    data:{labels:labels,datasets:[{label:'f(x,y)',data:bins,
+      backgroundColor:'rgba(124,106,247,0.5)',borderColor:'rgba(124,106,247,0.8)',borderWidth:1}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{
+        x:{title:{display:true,text:'f(x,y)',color:'#5a6075'},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075',maxTicksLimit:10}},
+        y:{title:{display:true,text:'Frecuencia',color:'#5a6075'},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075'}}
+      }}
+  });
+  document.getElementById('mc-legend').innerHTML=
+    '<div class="legend-item"><div class="legend-dot" style="background:rgba(124,106,247,0.7)"></div>Distribución de f(x,y)</div>';
+}
+
+/* ─── 5. CURVAS ─── */
+function mcCalcCurvas(){
+  mcHideErr();
+  mcDestroyChart();
+  var fStr=document.getElementById('mc-cv-f').value.trim();
+  var gStr=document.getElementById('mc-cv-g').value.trim();
+  var a=parseFloat(document.getElementById('mc-cv-a').value);
+  var b=parseFloat(document.getElementById('mc-cv-b').value);
+  var n=parseInt(document.getElementById('mc-cv-n').value);
+  if(isNaN(a)||isNaN(b)||a>=b){ mcShowErr('Verificá que a < b.'); return; }
+  if(isNaN(n)||n<100){ mcShowErr('N debe ser al menos 100.'); return; }
+  var fTecho,fPiso;
+  try{ fTecho=parseF(fStr); fTecho(a); }catch(e){ mcShowErr('f(x) inválida: '+e.message); return; }
+  try{ fPiso=parseF(gStr); fPiso(a); }catch(e){ mcShowErr('g(x) inválida: '+e.message); return; }
+
+  // Calcular y_min y y_max automáticamente
+  var nSample=200;
+  var yVals=[];
+  for(var i=0;i<=nSample;i++){
+    var xi=a+(b-a)*i/nSample;
+    yVals.push(fTecho(xi)); yVals.push(fPiso(xi));
+  }
+  var yMin=Math.min.apply(null,yVals);
+  var yMax=Math.max.apply(null,yVals);
+  var margin=(yMax-yMin)*0.05;
+  yMin-=margin; yMax+=margin;
+
+  var xArr=[],yArr=[],exitos=[];
+  var nEx=0;
+  for(var i=0;i<n;i++){
+    var xi=a+(b-a)*Math.random();
+    var yi=yMin+(yMax-yMin)*Math.random();
+    var ok=(yi<=fTecho(xi)&&yi>=fPiso(xi));
+    xArr.push(xi); yArr.push(yi); exitos.push(ok);
+    if(ok) nEx++;
+  }
+  var areaRect=(b-a)*(yMax-yMin);
+  var areaEst=areaRect*(nEx/n);
+
+  var metrics=
+    mcMCard('Área estimada', areaEst.toFixed(8), 'ok')+
+    mcMCard('Éxitos', nEx, '')+
+    mcMCard('N total', n, '')+
+    mcMCard('Tasa éxito', (nEx/n*100).toFixed(2)+'%', '')+
+    mcMCard('Área rect.', areaRect.toFixed(6), '');
+  mcShowResults(metrics, true, false);
+  document.getElementById('mc-chart-title').textContent='Rechazo por muestreo — Área entre curvas';
+
+  var ctx=document.getElementById('mc-chart').getContext('2d');
+  var maxPts=Math.min(n,3000);
+  var xIn=[],yIn=[],xOut=[],yOut_=[],xPlt=[],yF=[],yG=[];
+  for(var i=0;i<=200;i++){
+    var xi=a+(b-a)*i/200; xPlt.push(xi);
+    yF.push(fTecho(xi)); yG.push(fPiso(xi));
+  }
+  for(var i=0;i<maxPts;i++){
+    if(exitos[i]){xIn.push(xArr[i]);yIn.push(yArr[i]);}
+    else{xOut.push(xArr[i]);yOut_.push(yArr[i]);}
+  }
+  mcChart=new Chart(ctx,{
+    type:'scatter',
+    data:{datasets:[
+      {label:'Rechazados',data:xOut.map(function(v,i){return{x:v,y:yOut_[i]};}),
+       backgroundColor:'rgba(248,113,113,0.3)',pointRadius:1.5},
+      {label:'Aceptados',data:xIn.map(function(v,i){return{x:v,y:yIn[i]};}),
+       backgroundColor:'rgba(124,106,247,0.5)',pointRadius:1.5},
+      {label:'f(x) techo',data:xPlt.map(function(v,i){return{x:v,y:yF[i]};}),
+       type:'line',borderColor:'#4ade80',borderWidth:2,pointRadius:0,fill:false},
+      {label:'g(x) piso',data:xPlt.map(function(v,i){return{x:v,y:yG[i]};}),
+       type:'line',borderColor:'#fbbf24',borderWidth:2,pointRadius:0,fill:false}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{enabled:false}},
+      scales:{
+        x:{title:{display:true,text:'x',color:'#5a6075'},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075'}},
+        y:{title:{display:true,text:'y',color:'#5a6075'},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075'}}
+      }}
+  });
+  document.getElementById('mc-legend').innerHTML=
+    '<div class="legend-item"><div class="legend-dot" style="background:rgba(248,113,113,0.6)"></div>Rechazados</div>'+
+    '<div class="legend-item"><div class="legend-dot" style="background:rgba(124,106,247,0.7)"></div>Aceptados</div>'+
+    '<div class="legend-item"><div class="legend-line" style="background:#4ade80"></div>f(x) techo</div>'+
+    '<div class="legend-item"><div class="legend-line" style="background:#fbbf24"></div>g(x) piso</div>';
+}
+
+/* ─── 6. SIN(X)/X ─── */
+function mcCalcSinxX(){
+  mcHideErr();
+  mcDestroyChart();
+  var a=parseFloat(document.getElementById('mc-sx-a').value);
+  var b=parseFloat(document.getElementById('mc-sx-b').value);
+  var n=parseInt(document.getElementById('mc-sx-n').value);
+  var conf=parseFloat(document.getElementById('mc-sx-conf').value);
+  if(isNaN(a)||isNaN(b)||a>=b){ mcShowErr('Verificá que a < b y a > 0.'); return; }
+  if(a<=0){ mcShowErr('a debe ser mayor que 0 (sin(x)/x no está definida en x=0).'); return; }
+  if(isNaN(n)||n<100){ mcShowErr('N debe ser al menos 100.'); return; }
+
+  var f=function(x){ return x===0?1:Math.sin(x)/x; };
+  var vals=[]; for(var i=0;i<n;i++) vals.push(f(a+(b-a)*Math.random()));
+  var mean=vals.reduce(function(s,v){return s+v;},0)/n;
+  var integral=(b-a)*mean;
+  var varY=vals.reduce(function(s,v){return s+(v-mean)*(v-mean);},0)/(n-1);
+  var sigma=Math.sqrt(varY);
+  var z=zConf(conf);
+  var errorEst=z*sigma*(b-a)/Math.sqrt(n);
+
+  var metrics=
+    mcMCard('∫sin(x)/x dx ≈', integral.toFixed(8), 'ok')+
+    mcMCard('N', n, '')+
+    mcMCard('Error estim.', errorEst.toFixed(8), 'warn')+
+    mcMCard('IC ('+Math.round(conf*100)+'%)', '['+(integral-errorEst).toFixed(6)+', '+(integral+errorEst).toFixed(6)+']', '')+
+    mcMCard('Intervalo', '['+a+', '+b+']', '');
+  mcShowResults(metrics, true, false);
+  document.getElementById('mc-chart-title').textContent='sin(x)/x — función e integral';
+
+  var ctx=document.getElementById('mc-chart').getContext('2d');
+  var nS=300,sx=[],sy=[];
+  for(var i=0;i<=nS;i++){
+    var xi=a+(b-a)*i/nS; sx.push(xi); sy.push(f(xi));
+  }
+  mcChart=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:sx.map(function(v){return v.toFixed(4);}),
+      datasets:[
+        {label:'sin(x)/x',data:sy,borderColor:'#7c6af7',borderWidth:2,pointRadius:0,tension:0.4,fill:false},
+        {label:'Área',data:sy.map(function(v,i){return sx[i]>=a&&sx[i]<=b?v:null;}),
+         borderColor:'transparent',backgroundColor:'rgba(124,106,247,0.2)',fill:'origin',pointRadius:0}
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{
+        x:{title:{display:true,text:'x',color:'#5a6075'},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075',maxTicksLimit:10}},
+        y:{title:{display:true,text:'sin(x)/x',color:'#5a6075'},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075'}}
+      }}
+  });
+  document.getElementById('mc-legend').innerHTML=
+    '<div class="legend-item"><div class="legend-line" style="background:#7c6af7"></div>sin(x)/x</div>'+
+    '<div class="legend-item"><div class="legend-dot" style="background:rgba(124,106,247,0.4);border-radius:0;width:18px;height:10px"></div>Área estimada</div>';
+}
+
+/* ─── 7. ORBITAL ─── */
+function mcCalcOrbital(){
+  mcHideErr();
+  mcDestroyChart();
+  var dvN=parseFloat(document.getElementById('mc-orb-dv').value);
+  var sdv=parseFloat(document.getElementById('mc-orb-sdv').value);
+  var tN=parseFloat(document.getElementById('mc-orb-t').value);
+  var st=parseFloat(document.getElementById('mc-orb-st').value);
+  var n=parseInt(document.getElementById('mc-orb-n').value);
+  var umbralPct=parseFloat(document.getElementById('mc-orb-umbral').value)/100;
+  if([dvN,sdv,tN,st,n,umbralPct].some(isNaN)||sdv<0||st<0||n<1000){
+    mcShowErr('Verificá que todos los valores sean válidos. N ≥ 1000.'); return;
+  }
+
+  var Z=mcNormal(n*2);
+  var dvArr=[],tArr=[],impulso=[];
+  for(var i=0;i<n;i++){
+    var dv=dvN+sdv*Z[i];
+    var ti=tN+st*Z[n+i];
+    dvArr.push(dv); tArr.push(ti);
+    impulso.push(dv*ti);
+  }
+  var impulsoNominal=dvN*tN;
+  var umbral=impulsoNominal*umbralPct;
+  var exitos=impulso.filter(function(v){return v>=umbral;}).length;
+  var prob=exitos/n;
+
+  // Margen para 99%
+  var impulsoSorted=impulso.slice().sort(function(a,b){return a-b;});
+  var p1idx=Math.floor(0.01*n);
+  var peor1pct=impulsoSorted[p1idx];
+  var margenDV=(umbral-peor1pct)/tN;
+
+  var metrics=
+    mcMCard('P(éxito)', (prob*100).toFixed(2)+'%', prob>=0.95?'ok':'warn')+
+    mcMCard('Éxitos', exitos, '')+
+    mcMCard('N simulaciones', n, '')+
+    mcMCard('Impulso nominal', impulsoNominal.toFixed(2)+' m/s·s', '')+
+    mcMCard('Umbral éxito', umbral.toFixed(2)+' m/s·s', '')+
+    mcMCard('Margen ΔV para 99%', margenDV.toFixed(2)+' m/s', 'warn');
+  mcShowResults(metrics, true, false);
+  document.getElementById('mc-chart-title').textContent='Distribución del impulso total (ΔV × t)';
+
+  var ctx=document.getElementById('mc-chart').getContext('2d');
+  var samp=impulso.slice(0,Math.min(impulso.length,10000));
+  var minV=Math.min.apply(null,samp), maxV=Math.max.apply(null,samp);
+  var nbins=50, bw=(maxV-minV)/nbins||1;
+  var bins=new Array(nbins).fill(0);
+  var binsOk=new Array(nbins).fill(0);
+  samp.forEach(function(v){
+    var bi=Math.min(Math.floor((v-minV)/bw),nbins-1);
+    bins[bi]++;
+    if(v>=umbral) binsOk[bi]++;
+  });
+  var binsFail=bins.map(function(v,i){return v-binsOk[i];});
+  var labels=bins.map(function(_,i){return (minV+i*bw).toFixed(1);});
+  mcChart=new Chart(ctx,{
+    type:'bar',
+    data:{labels:labels,datasets:[
+      {label:'Éxito',data:binsOk,backgroundColor:'rgba(74,222,128,0.6)',borderWidth:0,stack:'s'},
+      {label:'Fallo',data:binsFail,backgroundColor:'rgba(248,113,113,0.5)',borderWidth:0,stack:'s'}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{
+        x:{title:{display:true,text:'Impulso total (m/s·s)',color:'#5a6075'},
+           grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075',maxTicksLimit:10}},
+        y:{title:{display:true,text:'Frecuencia',color:'#5a6075'},
+           stacked:true,grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075'}}
+      }}
+  });
+  document.getElementById('mc-legend').innerHTML=
+    '<div class="legend-item"><div class="legend-dot" style="background:rgba(74,222,128,0.7)"></div>Éxito (impulso ≥ umbral)</div>'+
+    '<div class="legend-item"><div class="legend-dot" style="background:rgba(248,113,113,0.6)"></div>Fallo</div>';
+}
+
+/* ─── 8. FINANCIERO ─── */
+function mcCalcFinanciero(){
+  mcHideErr();
+  mcDestroyChart();
+  var S0=parseFloat(document.getElementById('mc-fin-s0').value);
+  var K=parseFloat(document.getElementById('mc-fin-k').value);
+  var T=parseFloat(document.getElementById('mc-fin-t').value);
+  var r=parseFloat(document.getElementById('mc-fin-r').value);
+  var sigma=parseFloat(document.getElementById('mc-fin-sigma').value);
+  var n=parseInt(document.getElementById('mc-fin-n').value);
+  if([S0,K,T,r,sigma,n].some(isNaN)||S0<=0||K<=0||T<=0||sigma<=0||n<1000){
+    mcShowErr('Verificá que todos los valores sean válidos y positivos. N ≥ 1000.'); return;
+  }
+
+  var Z=mcNormal(n);
+  // Precios finales
+  var ST=Z.map(function(z){ return S0*Math.exp((r-0.5*sigma*sigma)*T+sigma*Math.sqrt(T)*z); });
+  var payoffs=ST.map(function(s){ return Math.max(s-K,0); });
+  var meanPay=payoffs.reduce(function(s,v){return s+v;},0)/n;
+  var precioMC=Math.exp(-r*T)*meanPay;
+
+  // Black-Scholes
+  function normCDF(x){
+    var t=1/(1+0.2316419*Math.abs(x));
+    var poly=t*(0.319381530+t*(-0.356563782+t*(1.781477937+t*(-1.821255978+t*1.330274429))));
+    var c=1-Math.exp(-x*x/2)/Math.sqrt(2*Math.PI)*poly;
+    return x>=0?c:1-c;
+  }
+  var d1=(Math.log(S0/K)+(r+0.5*sigma*sigma)*T)/(sigma*Math.sqrt(T));
+  var d2=d1-sigma*Math.sqrt(T);
+  var precioBS=S0*normCDF(d1)-K*Math.exp(-r*T)*normCDF(d2);
+
+  // VaR 99% a 1 día
+  var dt=1/252;
+  var Z2=mcNormal(n);
+  var ST1d=Z2.map(function(z){return S0*Math.exp((r-0.5*sigma*sigma)*dt+sigma*Math.sqrt(dt)*z);});
+  var perdidas=ST1d.map(function(s){return S0-s;});
+  var perdSort=perdidas.slice().sort(function(a,b){return a-b;});
+  var var99=perdSort[Math.floor(0.99*n)];
+
+  var metrics=
+    mcMCard('Precio Call (MC)', '$'+precioMC.toFixed(4), 'ok')+
+    mcMCard('Precio Call (B-S)', '$'+precioBS.toFixed(4), 'ok')+
+    mcMCard('Diferencia', '$'+Math.abs(precioMC-precioBS).toFixed(6), Math.abs(precioMC-precioBS)<0.1?'ok':'warn')+
+    mcMCard('VaR 99% (1 día)', '$'+var99.toFixed(4), 'warn')+
+    mcMCard('S₀', '$'+S0, '')+
+    mcMCard('K (Strike)', '$'+K, '')+
+    mcMCard('σ', (sigma*100).toFixed(1)+'%', '')+
+    mcMCard('T', T+' año(s)', '')+
+    mcMCard('r', (r*100).toFixed(2)+'%', '');
+  mcShowResults(metrics, true, true);
+  document.getElementById('mc-chart-title').textContent='Distribución de precios ST al vencimiento';
+  document.getElementById('mc-table-title').textContent='Comparación MC vs Black-Scholes';
+
+  // Gráfico histograma ST
+  var ctx=document.getElementById('mc-chart').getContext('2d');
+  var samp=ST.slice(0,Math.min(ST.length,10000));
+  var minV=Math.min.apply(null,samp), maxV=Math.max.apply(null,samp);
+  var nbins=50, bw=(maxV-minV)/nbins||1, bins=new Array(nbins).fill(0), binsItm=new Array(nbins).fill(0);
+  samp.forEach(function(v){
+    var bi=Math.min(Math.floor((v-minV)/bw),nbins-1);
+    bins[bi]++;
+    if(v>K) binsItm[bi]++;
+  });
+  var binsOtm=bins.map(function(v,i){return v-binsItm[i];});
+  var labels=bins.map(function(_,i){return '$'+(minV+i*bw).toFixed(1);});
+  mcChart=new Chart(ctx,{
+    type:'bar',
+    data:{labels:labels,datasets:[
+      {label:'In-the-money (ST > K)',data:binsItm,backgroundColor:'rgba(74,222,128,0.6)',borderWidth:0,stack:'s'},
+      {label:'Out-of-the-money',data:binsOtm,backgroundColor:'rgba(124,106,247,0.4)',borderWidth:0,stack:'s'}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{
+        x:{title:{display:true,text:'Precio ST',color:'#5a6075'},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075',maxTicksLimit:10}},
+        y:{title:{display:true,text:'Frecuencia',color:'#5a6075'},stacked:true,grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075'}}
+      }}
+  });
+  document.getElementById('mc-legend').innerHTML=
+    '<div class="legend-item"><div class="legend-dot" style="background:rgba(74,222,128,0.7)"></div>In-the-money (ST > K = $'+K+')</div>'+
+    '<div class="legend-item"><div class="legend-dot" style="background:rgba(124,106,247,0.6)"></div>Out-of-the-money</div>';
+
+  // Tabla comparación
+  document.getElementById('mc-thead').innerHTML='<th>Métrica</th><th>Monte Carlo</th><th>Black-Scholes</th><th>Diferencia</th>';
+  document.getElementById('mc-tbody').innerHTML=
+    '<tr><td>Precio Call</td><td style="color:var(--accent2)">$'+precioMC.toFixed(6)+'</td><td style="color:var(--green)">$'+precioBS.toFixed(6)+'</td><td>$'+Math.abs(precioMC-precioBS).toFixed(6)+'</td></tr>'+
+    '<tr><td>VaR 99% (1 día)</td><td colspan="3" style="color:var(--amber)">$'+var99.toFixed(4)+'</td></tr>'+
+    '<tr><td>d₁</td><td colspan="3">'+d1.toFixed(6)+'</td></tr>'+
+    '<tr><td>d₂</td><td colspan="3">'+d2.toFixed(6)+'</td></tr>';
+}
+
 </script>
 </body>
 </html>
