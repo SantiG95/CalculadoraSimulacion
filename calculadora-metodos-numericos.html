@@ -1145,11 +1145,11 @@
 
           <div class="field-group">
             <label>a — límite inferior</label>
-            <input id="nc-a" type="text" value="0" step="any"/>
+            <input id="nc-a" type="text" value="0" placeholder="ej: 0, -PI/2"/>
           </div>
           <div class="field-group">
             <label>b — límite superior</label>
-            <input id="nc-b" type="text" value="3.14159265" step="any"/>
+            <input id="nc-b" type="text" value="PI" placeholder="ej: PI, 3.1415"/>
           </div>
 
           
@@ -2552,8 +2552,12 @@ function linspace(a,b,n){
 
 function calcNewtonCotes(){
   var fnStr=document.getElementById('nc-fn').value.trim();
-  var a=parseFloat(document.getElementById('nc-a').value);
-  var b=parseFloat(document.getElementById('nc-b').value);
+  var aStr = document.getElementById('nc-a').value.trim();
+  var bStr = document.getElementById('nc-b').value.trim();
+  var a, b;
+  
+  try { a = aStr !== '' ? lgEvalExpr(aStr) : NaN; } catch(e) { a = NaN; }
+  try { b = bStr !== '' ? lgEvalExpr(bStr) : NaN; } catch(e) { b = NaN; }
   var n=parseInt(document.getElementById('nc-n').value);
   var met=document.getElementById('nc-metodo').value;
   var errEl=document.getElementById('nc-err');
