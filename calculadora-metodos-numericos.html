@@ -452,6 +452,9 @@
   <div class="method-item" id="menu-puntofijo" onclick="showPage('puntofijo')">
     <span class="method-num">02</span> Punto Fijo
   </div>
+  <div class="method-item" id="menu-aitken" onclick="showPage('aitken')">
+    <span class="method-num">03</span> Aceleración Aitken
+  </div>
 </div>
 
 <div id="layout">
@@ -667,6 +670,89 @@
       </div>
     </div>
 
+    <!-- AITKEN -->
+    <div id="page-aitken" class="page">
+      <div class="page-header">
+        <h2>Aceleración de Aitken (Δ²)</h2>
+        <p>Acelera la convergencia de la iteración de punto fijo usando la fórmula Δ² de Aitken</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Función iterativa g(x)</div>
+        <div class="field-group" style="margin-bottom:12px">
+          <label>Expresión de g(x)</label>
+          <div class="fn-input-wrap">
+            <input id="ak-fn" type="text" value="Math.exp(-x)" placeholder="ej: Math.exp(-x)" oninput="validateFn('ak-fn','ak-fn-status')"/>
+            <span class="fn-status" id="ak-fn-status" style="color:var(--green)">OK</span>
+          </div>
+          <div class="fn-hint">
+            Alias cortos: sin(x) · cos(x) · exp(x) · log(x) · sqrt(x) · pow(x,n) · E · PI · x**2<br>
+            También: Math.sin(x) · Math.cos(x) · Math.exp(x) · Math.log(x) · Math.sqrt(x)
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Parámetros</div>
+        <div class="grid-2" style="margin-bottom:14px">
+          <div class="field-group">
+            <label>x₀ — valor inicial</label>
+            <input id="ak-x0" type="number" value="1" step="any"/>
+          </div>
+          <div class="field-group">
+            <label>Tolerancia</label>
+            <select id="ak-tol">
+              <option value="1e-2">10⁻²</option>
+              <option value="1e-3">10⁻³</option>
+              <option value="1e-4">10⁻⁴</option>
+              <option value="1e-6" selected>10⁻⁶</option>
+              <option value="1e-8">10⁻⁸</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label>Máx. iteraciones</label>
+            <input id="ak-iter" type="number" value="50" min="1" max="500"/>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <button class="btn-primary" onclick="calcAitken()">Calcular</button>
+          <button class="btn-ghost" onclick="clearAitken()">Limpiar</button>
+        </div>
+      </div>
+
+      <div id="ak-err" class="err-box"></div>
+      <div id="ak-aviso" style="display:none;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.35);border-radius:var(--radius);padding:12px 16px;font-size:13px;color:var(--amber);margin-bottom:14px;font-family:var(--mono)"></div>
+
+      <div id="ak-results" style="display:none">
+        <div class="metrics" id="ak-metrics"></div>
+
+        <div class="card">
+          <div class="card-title">Convergencia — x̂ₙ (Aitken) vs xₙ (punto fijo)</div>
+          <div class="chart-wrap"><canvas id="ak-chart" role="img" aria-label="Gráfica de convergencia del método de Aitken comparado con punto fijo simple"></canvas></div>
+          <div class="legend-row" id="ak-legend"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Tabla de iteraciones</div>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>n</th>
+                  <th>xₙ</th>
+                  <th>xₙ₊₁ = g(xₙ)</th>
+                  <th>xₙ₊₂ = g(xₙ₊₁)</th>
+                  <th>x̂ₙ (Aitken)</th>
+                  <th>Error abs.</th>
+                </tr>
+              </thead>
+              <tbody id="ak-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -687,7 +773,7 @@ function closeMenu(){
 }
 
 /* ─── PAGES ─── */
-var pages=['welcome','biseccion','puntofijo'];
+var pages=['welcome','biseccion','puntofijo','aitken'];
 function showPage(name){
   pages.forEach(function(p){
     var el=document.getElementById('page-'+p);
@@ -1066,6 +1152,179 @@ function clearPuntoFijo(){
   document.getElementById('pf-err').style.display='none';
   document.getElementById('pf-aviso').style.display='none';
   if(pfChart){pfChart.destroy();pfChart=null;}
+}
+
+/* ─── AITKEN ─── */
+var akChart=null;
+
+function formulaAitken(xn,xn1,xn2){
+  var denom=xn2-2*xn1+xn;
+  if(denom===0) return xn2;
+  return xn-((xn1-xn)*(xn1-xn))/denom;
+}
+
+function calcAitken(){
+  var fnStr=document.getElementById('ak-fn').value.trim();
+  var x0=parseFloat(document.getElementById('ak-x0').value);
+  var tol=parseFloat(document.getElementById('ak-tol').value);
+  var maxI=parseInt(document.getElementById('ak-iter').value);
+
+  var errEl=document.getElementById('ak-err');
+  var avisoEl=document.getElementById('ak-aviso');
+  var resEl=document.getElementById('ak-results');
+
+  var g;
+  try{ g=parseF(fnStr); g(x0); }catch(e){
+    showErr('ak-err','Función inválida: '+e.message);
+    resEl.style.display='none'; return;
+  }
+  errEl.style.display='none';
+  avisoEl.style.display='none';
+
+  var rows=[];
+  var xn=x0;
+  var xFinal=x0;
+  var convergio=false;
+  var avisos=[];
+
+  // Guardar también valores de punto fijo simple para comparar en gráfica
+  var pfSimple=[x0];
+
+  for(var n=0;n<maxI;n++){
+    var xn1=g(xn);
+    var xn2=g(xn1);
+
+    if(!isFinite(xn1)||!isFinite(xn2)){
+      avisos.push('g(x) diverge (valor no finito) en la iteración '+n+'. Revisá la función o el x₀.');
+      break;
+    }
+
+    var xAcel=formulaAitken(xn,xn1,xn2);
+    var error=Math.abs(xAcel-xn);
+
+    rows.push([n, xn, xn1, xn2, xAcel, error]);
+    pfSimple.push(xn1);
+    xFinal=xAcel;
+
+    if(error<tol){ convergio=true; break; }
+    xn=xAcel;
+  }
+
+  if(avisos.length>0){
+    avisoEl.innerHTML=avisos.join('<br>');
+    avisoEl.style.display='block';
+  }
+  if(!convergio&&avisos.length===0){
+    avisoEl.innerHTML='El método no alcanzó la tolerancia en '+maxI+' iteraciones.';
+    avisoEl.style.display='block';
+  }
+
+  resEl.style.display='block';
+  var last=rows.length>0?rows[rows.length-1]:null;
+
+  document.getElementById('ak-metrics').innerHTML=
+    mCard('Raíz aprox. (Aitken)', convergio?xFinal.toPrecision(10):'No convergió', convergio?'ok':'warn')+
+    mCard('g(x̂ₙ)', last?g(xFinal).toExponential(4):'—', '', last?g(xFinal).toFixed(20).replace(/\.?0+$/,''):undefined)+
+    mCard('Error final', last?last[5].toExponential(4):'—', '', last?last[5].toFixed(20).replace(/\.?0+$/,''):undefined)+
+    mCard('Iteraciones', rows.length, '');
+
+  var tbody=document.getElementById('ak-tbody');
+  if(rows.length===0){
+    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px">Sin iteraciones.</td></tr>';
+  } else {
+    tbody.innerHTML=rows.map(function(r,i){
+      var isLast=i===rows.length-1&&convergio;
+      return '<tr'+(isLast?' class="row-final"':'')+'>'
+        +'<td>'+r[0]+'</td>'
+        +'<td>'+r[1].toFixed(10)+'</td>'
+        +'<td>'+r[2].toFixed(10)+'</td>'
+        +'<td>'+r[3].toFixed(10)+'</td>'
+        +'<td>'+r[4].toFixed(10)+'</td>'
+        +'<td>'+r[5].toExponential(3)+'</td>'
+        +'</tr>';
+    }).join('');
+  }
+
+  drawAkChart(rows, pfSimple, xFinal, convergio);
+}
+
+function drawAkChart(rows, pfSimple, xFinal, convergio){
+  var ns=rows.map(function(r){return r[0];});
+  var aitkenVals=rows.map(function(r){return r[4];});
+  var errs=rows.map(function(r){return r[5];});
+  var pfVals=pfSimple.slice(0, rows.length);
+
+  var ctx=document.getElementById('ak-chart').getContext('2d');
+  if(akChart){akChart.destroy();}
+
+  akChart=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:ns,
+      datasets:[
+        {
+          label:'x̂ₙ Aitken',
+          data:aitkenVals,
+          borderColor:'#7c6af7',
+          backgroundColor:'rgba(124,106,247,0.08)',
+          borderWidth:2,
+          pointRadius:4,
+          pointBackgroundColor:'#7c6af7',
+          tension:0.3,
+          fill:true,
+          yAxisID:'y'
+        },
+        {
+          label:'xₙ Punto fijo',
+          data:pfVals,
+          borderColor:'#4ade80',
+          borderWidth:1.5,
+          pointRadius:3,
+          pointBackgroundColor:'#4ade80',
+          borderDash:[5,4],
+          tension:0.3,
+          fill:false,
+          yAxisID:'y'
+        },
+        {
+          label:'Error',
+          data:errs,
+          borderColor:'#f87171',
+          borderWidth:1.5,
+          pointRadius:2,
+          pointBackgroundColor:'#f87171',
+          borderDash:[3,3],
+          tension:0.2,
+          fill:false,
+          yAxisID:'y2'
+        }
+      ]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{title:{display:true,text:'Iteración n',color:'#5a6075'},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075'}},
+        y:{title:{display:true,text:'Valor de x',color:'#5a6075'},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075'}},
+        y2:{position:'right',title:{display:true,text:'Error',color:'#f87171'},grid:{display:false},ticks:{color:'#f87171'}}
+      }
+    }
+  });
+
+  var lgd=document.getElementById('ak-legend');
+  lgd.innerHTML=
+    '<div class="legend-item"><div class="legend-line" style="background:#7c6af7"></div>x̂ₙ (Aitken acelerado)</div>'+
+    '<div class="legend-item"><div class="legend-line" style="background:#4ade80;height:1.5px"></div>xₙ (Punto fijo simple)</div>'+
+    '<div class="legend-item"><div class="legend-line" style="background:#f87171;height:1.5px"></div>Error abs.</div>'+
+    (convergio?'<div class="legend-item"><div class="legend-dot" style="background:#7c6af7"></div>Raíz ≈ '+xFinal.toPrecision(8)+'</div>':'');
+}
+
+function clearAitken(){
+  document.getElementById('ak-results').style.display='none';
+  document.getElementById('ak-err').style.display='none';
+  document.getElementById('ak-aviso').style.display='none';
+  if(akChart){akChart.destroy();akChart=null;}
 }
 </script>
 </body>
