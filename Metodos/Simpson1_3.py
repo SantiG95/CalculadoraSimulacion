@@ -2,6 +2,7 @@ import numpy as np
 from tabulate import tabulate
 # Importamos la cuarta derivada desde tu propio módulo de derivadas
 from .Derivada import cuarta_derivada 
+from .ErrorRelativoPorcentual import error_relativo_porcentual
 
 def simpson1_3(funcion, inicio, fin, n):
     if (n % 2) != 0:

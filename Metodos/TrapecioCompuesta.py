@@ -2,6 +2,7 @@ import numpy as np
 from tabulate import tabulate
 # Importamos la segunda derivada desde tu paquete
 from .Derivada import segunda_derivada 
+from .ErrorRelativoPorcentual import error_relativo_porcentual
 
 def trapecioCompuesta(funcion, inicio, fin, n):
     h = (fin - inicio) / n

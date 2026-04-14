@@ -18,6 +18,12 @@ def primera_derivada_progresiva_o2(f, x, h):
 def primera_derivada_regresiva_o2(f, x, h):
     return (3*f(x) - 4*f(x - h) + f(x - 2*h)) / (2 * h)
 
+def cuarta_derivada(funcion, punto, paso=1e-3):
+    # Fórmula de diferencias finitas centrales para la 4ta derivada
+    numerador = (funcion(punto + 2*paso) - 4*funcion(punto + paso) + 
+                 6*funcion(punto) - 4*funcion(punto - paso) + funcion(punto - 2*paso))
+    resultado = numerador / (paso**4)
+    return resultado
 
 # =========================================================
 # MÓDULO 2: DATOS DISCRETOS (TABLAS - Ejercicios 6 y 7)
