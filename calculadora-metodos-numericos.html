@@ -455,6 +455,9 @@
   <div class="method-item" id="menu-aitken" onclick="showPage('aitken')">
     <span class="method-num">03</span> Aceleración Aitken
   </div>
+  <div class="method-item" id="menu-newton" onclick="showPage('newton')">
+    <span class="method-num">04</span> Newton-Raphson
+  </div>
 </div>
 
 <div id="layout">
@@ -753,6 +756,96 @@
       </div>
     </div>
 
+    <!-- NEWTON-RAPHSON -->
+    <div id="page-newton" class="page">
+      <div class="page-header">
+        <h2>Método de Newton-Raphson</h2>
+        <p>Iteración xₙ₊₁ = xₙ − f(xₙ)/f'(xₙ) — convergencia cuadrática cuando f'(xₙ) ≠ 0</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Función f(x) y su derivada f'(x)</div>
+        <div class="field-group" style="margin-bottom:12px">
+          <label>f(x)</label>
+          <div class="fn-input-wrap">
+            <input id="nr-fn" type="text" value="x**3 - 2*x - 5" placeholder="ej: x**3 - 2*x - 5" oninput="validateFn('nr-fn','nr-fn-status')"/>
+            <span class="fn-status" id="nr-fn-status" style="color:var(--green)">OK</span>
+          </div>
+        </div>
+        <div class="field-group" style="margin-bottom:6px">
+          <label>f'(x) — derivada de f(x)</label>
+          <div class="fn-input-wrap">
+            <input id="nr-dfn" type="text" value="3*x**2 - 2" placeholder="ej: 3*x**2 - 2" oninput="validateFn('nr-dfn','nr-dfn-status')"/>
+            <span class="fn-status" id="nr-dfn-status" style="color:var(--green)">OK</span>
+          </div>
+        </div>
+        <div class="fn-hint" style="margin-top:8px">
+          Alias cortos: sin(x) · cos(x) · exp(x) · log(x) · sqrt(x) · pow(x,n) · E · PI · x**2<br>
+          También: Math.sin(x) · Math.cos(x) · Math.exp(x) · Math.log(x) · Math.sqrt(x)
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Parámetros</div>
+        <div class="grid-2" style="margin-bottom:14px">
+          <div class="field-group">
+            <label>x₀ — valor inicial</label>
+            <input id="nr-x0" type="number" value="1.5" step="any"/>
+          </div>
+          <div class="field-group">
+            <label>Tolerancia</label>
+            <select id="nr-tol">
+              <option value="1e-2">10⁻²</option>
+              <option value="1e-4">10⁻⁴</option>
+              <option value="1e-6">10⁻⁶</option>
+              <option value="1e-8" selected>10⁻⁸</option>
+              <option value="1e-10">10⁻¹⁰</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label>Máx. iteraciones</label>
+            <input id="nr-iter" type="number" value="50" min="1" max="500"/>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <button class="btn-primary" onclick="calcNewton()">Calcular raíz</button>
+          <button class="btn-ghost" onclick="clearNewton()">Limpiar</button>
+        </div>
+      </div>
+
+      <div id="nr-err" class="err-box"></div>
+      <div id="nr-aviso" style="display:none;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.35);border-radius:var(--radius);padding:12px 16px;font-size:13px;color:var(--amber);margin-bottom:14px;font-family:var(--mono)"></div>
+
+      <div id="nr-results" style="display:none">
+        <div class="metrics" id="nr-metrics"></div>
+
+        <div class="card">
+          <div class="card-title">Convergencia de xₙ y f(xₙ)</div>
+          <div class="chart-wrap" style="height:320px"><canvas id="nr-chart" role="img" aria-label="Gráfica de convergencia Newton-Raphson"></canvas></div>
+          <div class="legend-row" id="nr-legend"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Tabla de iteraciones</div>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>n</th>
+                  <th>xₙ</th>
+                  <th>f(xₙ)</th>
+                  <th>f'(xₙ)</th>
+                  <th>xₙ₊₁</th>
+                  <th>Error |xₙ₊₁ − xₙ|</th>
+                </tr>
+              </thead>
+              <tbody id="nr-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -773,7 +866,7 @@ function closeMenu(){
 }
 
 /* ─── PAGES ─── */
-var pages=['welcome','biseccion','puntofijo','aitken'];
+var pages=['welcome','biseccion','puntofijo','aitken','newton'];
 function showPage(name){
   pages.forEach(function(p){
     var el=document.getElementById('page-'+p);
@@ -1325,6 +1418,177 @@ function clearAitken(){
   document.getElementById('ak-err').style.display='none';
   document.getElementById('ak-aviso').style.display='none';
   if(akChart){akChart.destroy();akChart=null;}
+}
+
+/* ─── NEWTON-RAPHSON ─── */
+var nrChart=null;
+
+function calcNewton(){
+  var fnStr=document.getElementById('nr-fn').value.trim();
+  var dfStr=document.getElementById('nr-dfn').value.trim();
+  var x0=parseFloat(document.getElementById('nr-x0').value);
+  var tol=parseFloat(document.getElementById('nr-tol').value);
+  var maxI=parseInt(document.getElementById('nr-iter').value);
+
+  var errEl=document.getElementById('nr-err');
+  var avisoEl=document.getElementById('nr-aviso');
+  var resEl=document.getElementById('nr-results');
+
+  var f, df;
+  try{ f=parseF(fnStr); f(x0); }catch(e){
+    showErr('nr-err','f(x) inválida: '+e.message);
+    resEl.style.display='none'; return;
+  }
+  try{ df=parseF(dfStr); df(x0); }catch(e){
+    showErr('nr-err','f\'(x) inválida: '+e.message);
+    resEl.style.display='none'; return;
+  }
+  errEl.style.display='none';
+  avisoEl.style.display='none';
+
+  var rows=[];
+  var xn=x0;
+  var xFinal=x0;
+  var convergio=false;
+  var avisos=[];
+
+  for(var n=0;n<maxI;n++){
+    var fn=f(xn);
+    var dfn=df(xn);
+
+    if(!isFinite(fn)||!isFinite(dfn)){
+      avisos.push('Valor no finito en la iteración '+n+'. Revisá f(x), f\'(x) o el x₀.');
+      break;
+    }
+    if(dfn===0||Math.abs(dfn)<1e-15){
+      avisos.push('f\'(xₙ) = 0 en la iteración '+n+'. No se puede dividir por cero — el método se detiene.');
+      break;
+    }
+
+    var xSig=xn - fn/dfn;
+    var err=Math.abs(xSig-xn);
+    rows.push([n, xn, fn, dfn, xSig, err]);
+    xFinal=xSig;
+
+    if(xn===xSig||err<tol){ convergio=true; break; }
+    xn=xSig;
+  }
+
+  if(avisos.length>0){
+    avisoEl.innerHTML=avisos.join('<br>');
+    avisoEl.style.display='block';
+  }
+  if(!convergio&&avisos.length===0){
+    avisoEl.innerHTML='El método no alcanzó la tolerancia en '+maxI+' iteraciones.';
+    avisoEl.style.display='block';
+  }
+
+  resEl.style.display='block';
+  var last=rows.length>0?rows[rows.length-1]:null;
+
+  document.getElementById('nr-metrics').innerHTML=
+    mCard('Raíz encontrada', convergio?xFinal.toPrecision(10):'No convergió', convergio?'ok':'warn')+
+    mCard('f(raíz)', last?f(xFinal).toExponential(4):'—', '', last?f(xFinal).toFixed(20).replace(/\.?0+$/,''):undefined)+
+    mCard('Error final', last?last[5].toExponential(4):'—', '', last?last[5].toFixed(20).replace(/\.?0+$/,''):undefined)+
+    mCard('Iteraciones', rows.length, '');
+
+  var tbody=document.getElementById('nr-tbody');
+  if(rows.length===0){
+    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px">Sin iteraciones.</td></tr>';
+  } else {
+    tbody.innerHTML=rows.map(function(r,i){
+      var isLast=i===rows.length-1&&convergio;
+      return '<tr'+(isLast?' class="row-final"':'')+'>'
+        +'<td>'+r[0]+'</td>'
+        +'<td>'+r[1].toFixed(10)+'</td>'
+        +'<td>'+r[2].toFixed(10)+'</td>'
+        +'<td>'+r[3].toFixed(10)+'</td>'
+        +'<td>'+r[4].toFixed(10)+'</td>'
+        +'<td>'+r[5].toExponential(4)+'</td>'
+        +'</tr>';
+    }).join('');
+  }
+
+  drawNRChart(rows, xFinal, convergio, f);
+}
+
+function drawNRChart(rows, xFinal, convergio, f){
+  var ns=rows.map(function(r){return r[0];});
+  var xs=rows.map(function(r){return r[4];});       // xₙ₊₁
+  var fxs=rows.map(function(r){return Math.abs(r[2]);}); // |f(xₙ)|
+  var errs=rows.map(function(r){return r[5];});
+
+  var ctx=document.getElementById('nr-chart').getContext('2d');
+  if(nrChart){nrChart.destroy();}
+
+  nrChart=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:ns,
+      datasets:[
+        {
+          label:'xₙ₊₁',
+          data:xs,
+          borderColor:'#7c6af7',
+          backgroundColor:'rgba(124,106,247,0.08)',
+          borderWidth:2,
+          pointRadius:4,
+          pointBackgroundColor:'#7c6af7',
+          tension:0.3,
+          fill:true,
+          yAxisID:'y'
+        },
+        {
+          label:'|f(xₙ)|',
+          data:fxs,
+          borderColor:'#4ade80',
+          borderWidth:1.5,
+          pointRadius:3,
+          pointBackgroundColor:'#4ade80',
+          borderDash:[4,3],
+          tension:0.2,
+          fill:false,
+          yAxisID:'y2'
+        },
+        {
+          label:'Error',
+          data:errs,
+          borderColor:'#f87171',
+          borderWidth:1.5,
+          pointRadius:2,
+          pointBackgroundColor:'#f87171',
+          borderDash:[2,3],
+          tension:0.2,
+          fill:false,
+          yAxisID:'y2'
+        }
+      ]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{title:{display:true,text:'Iteración n',color:'#5a6075'},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075'}},
+        y:{title:{display:true,text:'xₙ₊₁',color:'#5a6075'},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075'}},
+        y2:{position:'right',title:{display:true,text:'|f(xₙ)| / Error',color:'#5a6075'},grid:{display:false},ticks:{color:'#5a6075'}}
+      }
+    }
+  });
+
+  var lgd=document.getElementById('nr-legend');
+  lgd.innerHTML=
+    '<div class="legend-item"><div class="legend-line" style="background:#7c6af7"></div>xₙ₊₁ (aproximaciones)</div>'+
+    '<div class="legend-item"><div class="legend-line" style="background:#4ade80;height:1.5px"></div>|f(xₙ)| (eje der.)</div>'+
+    '<div class="legend-item"><div class="legend-line" style="background:#f87171;height:1.5px"></div>Error |xₙ₊₁−xₙ| (eje der.)</div>'+
+    (convergio?'<div class="legend-item"><div class="legend-dot" style="background:#4ade80"></div>Raíz ≈ '+xFinal.toPrecision(8)+'</div>':'');
+}
+
+function clearNewton(){
+  document.getElementById('nr-results').style.display='none';
+  document.getElementById('nr-err').style.display='none';
+  document.getElementById('nr-aviso').style.display='none';
+  if(nrChart){nrChart.destroy();nrChart=null;}
 }
 </script>
 </body>
