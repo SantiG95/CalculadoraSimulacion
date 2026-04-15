@@ -96,7 +96,7 @@ def montecarlo_error_maximo(f, a, b, confianza, error_max, n_piloto=1000, seed=N
     
     # 3. Ejecutar la integración real con el N calculado
     # Se le pasa la misma semilla si la función integral_monte_carlo la soporta
-    return integral_monte_carlo(f, a, b, confianza, n=n_necesario, hacerGrafico=False)
+    "return integral_monte_carlo(f, a, b, confianza, n=n_necesario, hacerGrafico=False)"
 
 # =====================================================================
 # 3. SIMULADORES ESPECÍFICOS (Para Ejercicios 11 y 12)
