@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<style>
+<script src="https://cdn.jsdelivr.net/npm/mersennetwister@0.2.3/src/MersenneTwister.min.js"></script><style>
   :root {
     --bg: #0d0f14;
     --surface: #13161e;
@@ -3171,13 +3171,16 @@ function mulberry32(a) {
   }
 }
 
-// Inicializador de la semilla antes de cada cálculo
+// Reemplazas tu initSeed() actual por esto:
 function initSeed() {
   var seed = document.getElementById('mc-seed').value.trim();
   if (seed !== '') {
-    customRandom = mulberry32(parseInt(seed));
+    // Inicializamos Mersenne Twister con la semilla ingresada
+    var mt = new MersenneTwister(parseInt(seed));
+    // Sobrescribimos customRandom para que use la librería
+    customRandom = function() { return mt.random(); };
   } else {
-    customRandom = Math.random; // Vuelve al comportamiento original si está vacío
+    customRandom = Math.random;
   }
 }
 
