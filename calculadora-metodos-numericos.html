@@ -1290,11 +1290,11 @@
           <div class="grid-4">
             <div class="field-group">
               <label>a — límite inferior</label>
-              <input id="mc-i1-a" type="number" value="0" step="any"/>
+              <input id="mc-i1-a" type="text" value="0" placeholder="ej: 0, -PI"/>
             </div>
             <div class="field-group">
               <label>b — límite superior</label>
-              <input id="mc-i1-b" type="number" value="1" step="any"/>
+              <input id="mc-i1-b" type="text" value="PI" placeholder="ej: 1, PI/2"/>
             </div>
             <div class="field-group">
               <label>Confianza</label>
@@ -1333,11 +1333,11 @@
           <div class="grid-4">
             <div class="field-group">
               <label>a — límite inferior</label>
-              <input id="mc-i2-a" type="number" value="1" step="any"/>
+              <input id="mc-i2-a" type="text" value="0" placeholder="ej: 0, -PI"/>
             </div>
             <div class="field-group">
               <label>b — límite superior</label>
-              <input id="mc-i2-b" type="number" value="4" step="any"/>
+              <input id="mc-i2-b" type="text" value="PI" placeholder="ej: 4, PI*2"/>
             </div>
             <div class="field-group">
               <label>N — cantidad de puntos</label>
@@ -1374,19 +1374,19 @@
           <div class="grid-4">
             <div class="field-group">
               <label>x₁ — límite inf. x</label>
-              <input id="mc-id-x1" type="number" value="1" step="any"/>
+              <input id="mc-id-x1" type="text" value="0" placeholder="ej: 0"/>
             </div>
             <div class="field-group">
               <label>x₂ — límite sup. x</label>
-              <input id="mc-id-x2" type="number" value="2" step="any"/>
+              <input id="mc-id-x2" type="text" value="PI" placeholder="ej: PI"/>
             </div>
             <div class="field-group">
               <label>y₁ — límite inf. y</label>
-              <input id="mc-id-y1" type="number" value="1" step="any"/>
+              <input id="mc-id-y1" type="text" value="0" placeholder="ej: 0"/>
             </div>
             <div class="field-group">
               <label>y₂ — límite sup. y</label>
-              <input id="mc-id-y2" type="number" value="3" step="any"/>
+              <input id="mc-id-y2" type="text" value="PI" placeholder="ej: PI"/>
             </div>
           </div>
           <div class="grid-2">
@@ -1431,11 +1431,11 @@
           <div class="grid-4">
             <div class="field-group">
               <label>a — inicio intervalo</label>
-              <input id="mc-cv-a" type="number" value="0" step="any"/>
+              <input id="mc-cv-a" type="text" value="0" placeholder="ej: 0"/>
             </div>
             <div class="field-group">
               <label>b — fin intervalo</label>
-              <input id="mc-cv-b" type="number" value="1" step="any"/>
+              <input id="mc-cv-b" type="text" value="PI" placeholder="ej: PI/4"/>
             </div>
             <div class="field-group">
               <label>N — puntos</label>
@@ -1457,11 +1457,11 @@
           <div class="grid-4">
             <div class="field-group">
               <label>a — límite inferior (> 0)</label>
-              <input id="mc-sx-a" type="number" value="0.0001" step="any" min="0.0001"/>
+              <input id="mc-sx-a" type="text" value="0.0001" placeholder="ej: 0.0001"/>
             </div>
             <div class="field-group">
               <label>b — límite superior</label>
-              <input id="mc-sx-b" type="number" value="3.14159265" step="any"/>
+              <input id="mc-sx-b" type="text" value="PI" placeholder="ej: PI"/>
             </div>
             <div class="field-group">
               <label>N — puntos</label>
@@ -3248,6 +3248,18 @@ var mcChart = null;
 /* ─── Utilidades ─── */
 var customRandom = Math.random;
 
+// Función para evaluar límites con expresiones matemáticas (ej: "PI", "pi/2", "2*PI")
+function evalLimit(val) {
+  if (typeof val !== 'string' || val.trim() === '') return NaN;
+  try {
+    // Convierte "pi" minúscula a "PI" para que coincida con Math.PI
+    var expr = val.replace(/\bpi\b/gi, 'PI');
+    return lgEvalExpr(expr);
+  } catch(e) {
+    return NaN;
+  }
+}
+
 // Algoritmo PRNG Mulberry32 (usado cuando hay semilla)
 function mulberry32(a) {
   return function() {
@@ -3274,13 +3286,17 @@ function initSeed() {
   }
 }
 
-function parseFXY(s){
-  s=s.replace(/\bsin\b/g,'Math.sin').replace(/\bcos\b/g,'Math.cos')
-     .replace(/\btan\b/g,'Math.tan').replace(/\bexp\b/g,'Math.exp')
-     .replace(/\bsqrt\b/g,'Math.sqrt').replace(/\blog\b/g,'Math.log')
-     .replace(/\bpow\b/g,'Math.pow').replace(/\babs\b/g,'Math.abs')
-     .replace(/\bPI\b/g,'Math.PI').replace(/\bE\b/g,'Math.E');
-  return new Function('x','y', 'return ('+s+');');
+function parseFXY(expr){
+  // Esto convierte cualquier "math.algo" (minúscula) a "Math.algo" (mayúscula)
+  var safeExpr = expr.replace(/\bmath\./gi, 'Math.');
+  
+  // Agregamos "var math=Math;" por si acaso, para que ambas formas sean válidas
+  var scope = 'var math=Math, sin=Math.sin,cos=Math.cos,tan=Math.tan,exp=Math.exp, Exp=Math.exp,log=Math.log,'
+    +'log2=Math.log2,log10=Math.log10,sqrt=Math.sqrt,abs=Math.abs,pow=Math.pow,'
+    +'sign=Math.sign,ceil=Math.ceil,floor=Math.floor,round=Math.round,'
+    +'PI=Math.PI,E=Math.E,e=Math.E;';
+    
+  return new Function('x', 'y', scope + 'return (' + safeExpr + ');');
 }
 
 function validateFnXY(inId, statusId){
@@ -3417,8 +3433,8 @@ function mcCalcIntegral1(){
   mcDestroyChart();
   initSeed();
   var fnStr=document.getElementById('mc-i1-fn').value.trim();
-  var a=parseFloat(document.getElementById('mc-i1-a').value);
-  var b=parseFloat(document.getElementById('mc-i1-b').value);
+  var a=evalLimit(document.getElementById('mc-i1-a').value);
+  var b=evalLimit(document.getElementById('mc-i1-b').value);
   var conf=parseFloat(document.getElementById('mc-i1-conf').value);
   var errMax=parseFloat(document.getElementById('mc-i1-err').value);
   if(isNaN(a)||isNaN(b)||a>=b){ mcShowErr('Verificá que a < b.'); return; }
@@ -3484,8 +3500,8 @@ function mcCalcIntegral2(){
   mcDestroyChart();
   initSeed();
   var fnStr=document.getElementById('mc-i2-fn').value.trim();
-  var a=parseFloat(document.getElementById('mc-i2-a').value);
-  var b=parseFloat(document.getElementById('mc-i2-b').value);
+  var a=evalLimit(document.getElementById('mc-i2-a').value);
+  var b=evalLimit(document.getElementById('mc-i2-b').value);
   var n=parseInt(document.getElementById('mc-i2-n').value);
   var conf=parseFloat(document.getElementById('mc-i2-conf').value);
   if(isNaN(a)||isNaN(b)||a>=b){ mcShowErr('Verificá que a < b.'); return; }
@@ -3558,10 +3574,10 @@ function mcCalcIntegralDoble(){
   mcDestroyChart();
   initSeed();
   var fnStr=document.getElementById('mc-id-fn').value.trim();
-  var x1=parseFloat(document.getElementById('mc-id-x1').value);
-  var x2=parseFloat(document.getElementById('mc-id-x2').value);
-  var y1=parseFloat(document.getElementById('mc-id-y1').value);
-  var y2=parseFloat(document.getElementById('mc-id-y2').value);
+  var x1=evalLimit(document.getElementById('mc-id-x1').value);
+  var x2=evalLimit(document.getElementById('mc-id-x2').value);
+  var y1=evalLimit(document.getElementById('mc-id-y1').value);
+  var y2=evalLimit(document.getElementById('mc-id-y2').value);
   var n=parseInt(document.getElementById('mc-id-n').value);
   var conf=parseFloat(document.getElementById('mc-id-conf').value);
   if(isNaN(x1)||isNaN(x2)||x1>=x2){ mcShowErr('Verificá que x₁ < x₂.'); return; }
@@ -3621,8 +3637,8 @@ function mcCalcCurvas(){
   initSeed();
   var fStr=document.getElementById('mc-cv-f').value.trim();
   var gStr=document.getElementById('mc-cv-g').value.trim();
-  var a=parseFloat(document.getElementById('mc-cv-a').value);
-  var b=parseFloat(document.getElementById('mc-cv-b').value);
+  var a=evalLimit(document.getElementById('mc-cv-a').value);
+  var b=evalLimit(document.getElementById('mc-cv-b').value);
   var n=parseInt(document.getElementById('mc-cv-n').value);
   if(isNaN(a)||isNaN(b)||a>=b){ mcShowErr('Verificá que a < b.'); return; }
   if(isNaN(n)||n<100){ mcShowErr('N debe ser al menos 100.'); return; }
@@ -3705,8 +3721,8 @@ function mcCalcSinxX(){
   mcHideErr();
   mcDestroyChart();
   initSeed();
-  var a=parseFloat(document.getElementById('mc-sx-a').value);
-  var b=parseFloat(document.getElementById('mc-sx-b').value);
+  var a=evalLimit(document.getElementById('mc-sx-a').value);
+  var b=evalLimit(document.getElementById('mc-sx-b').value);
   var n=parseInt(document.getElementById('mc-sx-n').value);
   var conf=parseFloat(document.getElementById('mc-sx-conf').value);
   if(isNaN(a)||isNaN(b)||a>=b){ mcShowErr('Verificá que a < b y a > 0.'); return; }
