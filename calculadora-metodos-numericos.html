@@ -474,6 +474,10 @@
   <div class="method-item" id="menu-montecarlo" onclick="showPage('montecarlo')">
     <span class="method-num">08</span> Monte Carlo
   </div>
+  <div class="category-label">Ecuaciones diferenciales</div>
+  <div class="method-item" id="menu-edo" onclick="showPage('edo')">
+    <span class="method-num">09</span> EDO — Euler / Heun / RK4
+  </div>
 </div>
 
 <div id="layout">
@@ -1584,6 +1588,89 @@
       </div>
     </div>
 
+    <!-- EDO -->
+    <div id="page-edo" class="page">
+      <div class="page-header">
+        <h2>Ecuaciones Diferenciales Ordinarias</h2>
+        <p>Resolución numérica de EDO — Euler, Euler Mejorado (Heun) y Runge-Kutta 4</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Definición de la EDO</div>
+        <div class="grid-2" style="margin-bottom:12px">
+          <div class="field-group">
+            <label>dy/dx = f(x, y)</label>
+            <div class="fn-input-wrap">
+              <input id="edo-fn" type="text" value="x**2 + y" placeholder="ej: x**2 + y" oninput="edoValidateFn()"/>
+              <span class="fn-status" id="edo-fn-status" style="color:var(--green)">OK</span>
+            </div>
+          </div>
+          <div class="field-group">
+            <label>Solución exacta y(x) — opcional</label>
+            <div class="fn-input-wrap">
+              <input id="edo-real" type="text" value="-x - 1 + 2 * Math.exp(x)" placeholder="ej: -x - 1 + 2 * Math.exp(x)"/>
+              <span class="fn-status" id="edo-real-status" style="color:var(--text3)">—</span>
+            </div>
+          </div>
+        </div>
+        <div class="fn-hint">
+          Variables disponibles: x, y — Ejemplos: x**2 + y · Math.sin(x)*y · -2*x*y · x*Math.exp(-y)<br>
+          Prefijos Math: Math.sin · Math.cos · Math.exp · Math.log · Math.sqrt · Math.pow(x,n) · Math.PI · Math.E
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Parámetros numéricos</div>
+        <div class="grid-4">
+          <div class="field-group">
+            <label>x₀ — valor inicial</label>
+            <input id="edo-x0" type="number" value="0" step="any"/>
+          </div>
+          <div class="field-group">
+            <label>y₀ — condición inicial</label>
+            <input id="edo-y0" type="number" value="1" step="any"/>
+          </div>
+          <div class="field-group">
+            <label>h — tamaño de paso</label>
+            <input id="edo-h" type="number" value="0.2" step="any" min="0.0001"/>
+          </div>
+          <div class="field-group">
+            <label>Pasos</label>
+            <input id="edo-pasos" type="number" value="10" min="1" max="500"/>
+          </div>
+        </div>
+        <div class="field-group" style="margin-bottom:14px">
+          <label>Método</label>
+          <select id="edo-metodo">
+            <option value="euler">Euler Tradicional</option>
+            <option value="heun">Euler Mejorado (Heun)</option>
+            <option value="rk4" selected>Runge-Kutta 4 (RK4)</option>
+            <option value="todos">Comparar los 3 métodos</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <button class="btn-primary" onclick="calcEDO()">Calcular</button>
+          <button class="btn-ghost" onclick="clearEDO()">Limpiar</button>
+        </div>
+      </div>
+
+      <div id="edo-err" class="err-box"></div>
+
+      <div id="edo-results" style="display:none">
+        <div class="metrics" id="edo-metrics"></div>
+
+        <div class="card">
+          <div class="card-title">Gráfica de la solución</div>
+          <div class="chart-wrap"><canvas id="edo-chart"></canvas></div>
+          <div class="legend-row" id="edo-legend"></div>
+        </div>
+
+        <div class="card">
+          <div id="edo-table-container"></div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 <script>
@@ -1603,7 +1690,7 @@ function closeMenu(){
 }
 
 /* ─── PAGES ─── */
-var pages=['welcome','biseccion','puntofijo','aitken','newton','lagrange','diffinitas','newtoncotes','montecarlo'];
+var pages=['welcome','biseccion','puntofijo','aitken','newton','lagrange','diffinitas','newtoncotes','montecarlo','edo'];
 function showPage(name){
   pages.forEach(function(p){
     var el=document.getElementById('page-'+p);
@@ -3837,6 +3924,294 @@ function mcCalcFinanciero(){
     '<tr><td>VaR 99% (1 día)</td><td colspan="3" style="color:var(--amber)">$'+var99.toFixed(4)+'</td></tr>'+
     '<tr><td>d₁</td><td colspan="3">'+d1.toFixed(6)+'</td></tr>'+
     '<tr><td>d₂</td><td colspan="3">'+d2.toFixed(6)+'</td></tr>';
+}
+
+
+/* ══════════════════════════════════════════
+   EDO — Euler / Heun / RK4
+══════════════════════════════════════════ */
+var edoChart = null;
+
+function parseFxy(expr){
+  var scope = 'var sin=Math.sin,cos=Math.cos,tan=Math.tan,exp=Math.exp,log=Math.log,'
+    +'log2=Math.log2,log10=Math.log10,sqrt=Math.sqrt,abs=Math.abs,pow=Math.pow,'
+    +'sign=Math.sign,ceil=Math.ceil,floor=Math.floor,round=Math.round,'
+    +'PI=Math.PI,E=Math.E,e=Math.E;';
+  return new Function('x','y', scope + 'return (' + expr + ');');
+}
+
+function edoValidateFn(){
+  var expr = document.getElementById('edo-fn').value.trim();
+  var st = document.getElementById('edo-fn-status');
+  try { var f = parseFxy(expr); f(0,1); f(1,-1); st.textContent='OK'; st.style.color='var(--green)'; return true; }
+  catch(e) { st.textContent='ERR'; st.style.color='var(--red)'; return false; }
+}
+
+function edoEuler(f, x0, y0, h, pasos){
+  var rows = [];
+  var xn = x0, yn = y0;
+  for(var n=0; n<=pasos; n++){
+    var slope = f(xn, yn);
+    var yn1 = yn + h * slope;
+    rows.push({n:n, x:xn, y:yn, y1:yn1, slope:slope});
+    if(n < pasos){ yn = yn1; xn = xn + h; }
+  }
+  return rows;
+}
+
+function edoHeun(f, x0, y0, h, pasos){
+  var rows = [];
+  var xn = x0, yn = y0;
+  for(var n=0; n<=pasos; n++){
+    var k1 = f(xn, yn);
+    var yp = yn + h * k1;
+    var xn1 = xn + h;
+    var k2 = f(xn1, yp);
+    var yn1 = yn + (h/2)*(k1+k2);
+    rows.push({n:n, x:xn, y:yn, yp:yp, y1:yn1, k1:k1, k2:k2});
+    if(n < pasos){ yn = yn1; xn = xn1; }
+  }
+  return rows;
+}
+
+function edoRK4(f, x0, y0, h, pasos){
+  var rows = [];
+  var xn = x0, yn = y0;
+  for(var n=0; n<=pasos; n++){
+    var k1 = f(xn, yn);
+    var k2 = f(xn+h/2, yn+(h/2)*k1);
+    var k3 = f(xn+h/2, yn+(h/2)*k2);
+    var k4 = f(xn+h,   yn+h*k3);
+    var yn1 = yn + (h/6)*(k1+2*k2+2*k3+k4);
+    rows.push({n:n, x:xn, y:yn, k1:k1, k2:k2, k3:k3, k4:k4, y1:yn1});
+    if(n < pasos){ yn = yn1; xn = xn + h; }
+  }
+  return rows;
+}
+
+function edoTableEuler(rows, fReal){
+  var hasReal = fReal !== null;
+  var head = '<div class="card-title">Tabla — Euler Tradicional</div>'
+    +'<div class="tbl-wrap"><table><thead><tr>'
+    +'<th>n</th><th>Xn</th><th>Yn</th><th>Yn+1</th>'
+    +(hasReal?'<th>Y real</th><th>Error</th>':'')
+    +'</tr></thead><tbody>';
+  var body = rows.map(function(r, i){
+    var yr = hasReal ? fReal(r.x) : null;
+    var err = hasReal ? Math.abs(r.y - yr) : null;
+    var last = i === rows.length-1;
+    return '<tr'+(last?' class="row-final"':'')+'>'
+      +'<td>'+r.n+'</td>'
+      +'<td>'+r.x.toFixed(4)+'</td>'
+      +'<td>'+r.y.toFixed(6)+'</td>'
+      +'<td>'+r.y1.toFixed(6)+'</td>'
+      +(hasReal?'<td>'+yr.toFixed(6)+'</td><td>'+err.toExponential(4)+'</td>':'')
+      +'</tr>';
+  }).join('');
+  return head + body + '</tbody></table></div>';
+}
+
+function edoTableHeun(rows, fReal){
+  var hasReal = fReal !== null;
+  var head = '<div class="card-title">Tabla — Euler Mejorado (Heun)</div>'
+    +'<div class="tbl-wrap"><table><thead><tr>'
+    +'<th>n</th><th>Xn</th><th>Yn</th><th>Y*n+1 (pred.)</th><th>Yn+1</th>'
+    +(hasReal?'<th>Y real</th><th>Error</th>':'')
+    +'</tr></thead><tbody>';
+  var body = rows.map(function(r, i){
+    var yr = hasReal ? fReal(r.x) : null;
+    var err = hasReal ? Math.abs(r.y - yr) : null;
+    var last = i === rows.length-1;
+    return '<tr'+(last?' class="row-final"':'')+'>'
+      +'<td>'+r.n+'</td>'
+      +'<td>'+r.x.toFixed(4)+'</td>'
+      +'<td>'+r.y.toFixed(6)+'</td>'
+      +'<td>'+r.yp.toFixed(6)+'</td>'
+      +'<td>'+r.y1.toFixed(6)+'</td>'
+      +(hasReal?'<td>'+yr.toFixed(6)+'</td><td>'+err.toExponential(4)+'</td>':'')
+      +'</tr>';
+  }).join('');
+  return head + body + '</tbody></table></div>';
+}
+
+function edoTableRK4(rows, fReal){
+  var hasReal = fReal !== null;
+  var head = '<div class="card-title">Tabla — Runge-Kutta 4</div>'
+    +'<div class="tbl-wrap"><table><thead><tr>'
+    +'<th>n</th><th>Xn</th><th>Yn</th><th>K1</th><th>K2</th><th>K3</th><th>K4</th><th>Yn+1</th>'
+    +(hasReal?'<th>Y real</th><th>Error</th>':'')
+    +'</tr></thead><tbody>';
+  var body = rows.map(function(r, i){
+    var yr = hasReal ? fReal(r.x) : null;
+    var err = hasReal ? Math.abs(r.y - yr) : null;
+    var last = i === rows.length-1;
+    return '<tr'+(last?' class="row-final"':'')+'>'
+      +'<td>'+r.n+'</td>'
+      +'<td>'+r.x.toFixed(4)+'</td>'
+      +'<td>'+r.y.toFixed(6)+'</td>'
+      +'<td>'+r.k1.toFixed(6)+'</td>'
+      +'<td>'+r.k2.toFixed(6)+'</td>'
+      +'<td>'+r.k3.toFixed(6)+'</td>'
+      +'<td>'+r.k4.toFixed(6)+'</td>'
+      +'<td>'+r.y1.toFixed(6)+'</td>'
+      +(hasReal?'<td>'+yr.toFixed(6)+'</td><td>'+err.toExponential(4)+'</td>':'')
+      +'</tr>';
+  }).join('');
+  return head + body + '</tbody></table></div>';
+}
+
+function calcEDO(){
+  document.getElementById('edo-err').style.display = 'none';
+  var fnStr = document.getElementById('edo-fn').value.trim();
+  var realStr = document.getElementById('edo-real').value.trim();
+  var x0 = parseFloat(document.getElementById('edo-x0').value);
+  var y0 = parseFloat(document.getElementById('edo-y0').value);
+  var h  = parseFloat(document.getElementById('edo-h').value);
+  var pasos = parseInt(document.getElementById('edo-pasos').value);
+  var metodo = document.getElementById('edo-metodo').value;
+
+  if(isNaN(x0)||isNaN(y0)||isNaN(h)||isNaN(pasos)||h<=0||pasos<1){
+    showErr('edo-err','Verificá que todos los valores numéricos sean válidos. h > 0 y pasos ≥ 1.'); return;
+  }
+  var f;
+  try{ f = parseFxy(fnStr); f(x0, y0); }
+  catch(e){ showErr('edo-err','Error en f(x,y): '+e.message); return; }
+
+  var fReal = null;
+  if(realStr){
+    try{
+      var scope = 'var sin=Math.sin,cos=Math.cos,tan=Math.tan,exp=Math.exp,log=Math.log,'
+        +'log2=Math.log2,log10=Math.log10,sqrt=Math.sqrt,abs=Math.abs,pow=Math.pow,'
+        +'sign=Math.sign,ceil=Math.ceil,floor=Math.floor,round=Math.round,'
+        +'PI=Math.PI,E=Math.E,e=Math.E;';
+      fReal = new Function('x', scope+'return ('+realStr+');');
+      fReal(x0);
+      document.getElementById('edo-real-status').textContent='OK';
+      document.getElementById('edo-real-status').style.color='var(--green)';
+    }catch(e){
+      document.getElementById('edo-real-status').textContent='ERR';
+      document.getElementById('edo-real-status').style.color='var(--red)';
+      fReal = null;
+    }
+  }
+
+  var rowsE=null, rowsH=null, rowsRK=null;
+  if(metodo==='euler'||metodo==='todos')  rowsE  = edoEuler(f, x0, y0, h, pasos);
+  if(metodo==='heun'||metodo==='todos')   rowsH  = edoHeun(f, x0, y0, h, pasos);
+  if(metodo==='rk4'||metodo==='todos')    rowsRK = edoRK4(f, x0, y0, h, pasos);
+
+  // Metrics: error final de cada método activo
+  var metricsHTML = '';
+  var xFinal = x0 + h*pasos;
+  if(rowsE){
+    var lastE = rowsE[rowsE.length-1];
+    var errE = fReal ? Math.abs(lastE.y - fReal(lastE.x)) : null;
+    metricsHTML += mCard('Euler — y('+xFinal.toFixed(4)+')', lastE.y.toFixed(8), '');
+    if(errE!==null) metricsHTML += mCard('Error final Euler', errE.toExponential(4), errE<1e-3?'ok':'warn');
+  }
+  if(rowsH){
+    var lastH = rowsH[rowsH.length-1];
+    var errH = fReal ? Math.abs(lastH.y - fReal(lastH.x)) : null;
+    metricsHTML += mCard('Heun — y('+xFinal.toFixed(4)+')', lastH.y.toFixed(8), '');
+    if(errH!==null) metricsHTML += mCard('Error final Heun', errH.toExponential(4), errH<1e-3?'ok':'warn');
+  }
+  if(rowsRK){
+    var lastRK = rowsRK[rowsRK.length-1];
+    var errRK = fReal ? Math.abs(lastRK.y - fReal(lastRK.x)) : null;
+    metricsHTML += mCard('RK4 — y('+xFinal.toFixed(4)+')', lastRK.y.toFixed(8), 'ok');
+    if(errRK!==null) metricsHTML += mCard('Error final RK4', errRK.toExponential(4), errRK<1e-6?'ok':'warn');
+  }
+  if(fReal) metricsHTML += mCard('y real('+xFinal.toFixed(4)+')', fReal(xFinal).toFixed(8), '');
+  metricsHTML += mCard('h', h, '')+mCard('Pasos', pasos, '');
+
+  document.getElementById('edo-metrics').innerHTML = metricsHTML;
+
+  // Build tables
+  var tableHTML = '';
+  if(rowsE)  tableHTML += edoTableEuler(rowsE, fReal);
+  if(rowsH)  tableHTML += edoTableHeun(rowsH, fReal);
+  if(rowsRK) tableHTML += edoTableRK4(rowsRK, fReal);
+  document.getElementById('edo-table-container').innerHTML = tableHTML;
+
+  // Chart
+  drawEdoChart(rowsE, rowsH, rowsRK, fReal, x0, xFinal);
+
+  document.getElementById('edo-results').style.display = 'block';
+}
+
+function drawEdoChart(rowsE, rowsH, rowsRK, fReal, x0, xFinal){
+  if(edoChart){ edoChart.destroy(); edoChart=null; }
+  var datasets = [];
+  var legendHTML = '';
+
+  if(rowsE){
+    datasets.push({
+      label:'Euler',
+      data: rowsE.map(function(r){return{x:r.x,y:r.y};}),
+      borderColor:'#fbbf24', borderWidth:2, pointRadius:3,
+      pointBackgroundColor:'#fbbf24', tension:0.2, fill:false, showLine:true
+    });
+    legendHTML += '<div class="legend-item"><div class="legend-line" style="background:#fbbf24"></div>Euler</div>';
+  }
+  if(rowsH){
+    datasets.push({
+      label:'Heun',
+      data: rowsH.map(function(r){return{x:r.x,y:r.y};}),
+      borderColor:'#f87171', borderWidth:2, pointRadius:3,
+      pointBackgroundColor:'#f87171', tension:0.2, fill:false, showLine:true
+    });
+    legendHTML += '<div class="legend-item"><div class="legend-line" style="background:#f87171"></div>Heun</div>';
+  }
+  if(rowsRK){
+    datasets.push({
+      label:'RK4',
+      data: rowsRK.map(function(r){return{x:r.x,y:r.y};}),
+      borderColor:'#a594f9', borderWidth:2, pointRadius:3,
+      pointBackgroundColor:'#a594f9', tension:0.2, fill:false, showLine:true
+    });
+    legendHTML += '<div class="legend-item"><div class="legend-line" style="background:#a594f9"></div>RK4</div>';
+  }
+  if(fReal){
+    var nPts = 200;
+    var rng = xFinal - x0;
+    var exactPts = [];
+    for(var i=0; i<=nPts; i++){
+      var xi = x0 + rng*i/nPts;
+      exactPts.push({x:xi, y:fReal(xi)});
+    }
+    datasets.push({
+      label:'Solución exacta',
+      data: exactPts,
+      borderColor:'#4ade80', borderWidth:2, pointRadius:0,
+      borderDash:[6,3], tension:0.3, fill:false, showLine:true
+    });
+    legendHTML += '<div class="legend-item"><div class="legend-line" style="background:#4ade80;border-top:2px dashed #4ade80;height:0"></div>Solución exacta</div>';
+  }
+
+  var ctx = document.getElementById('edo-chart').getContext('2d');
+  edoChart = new Chart(ctx, {
+    type:'scatter',
+    data:{datasets:datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{type:'linear',title:{display:true,text:'x',color:'#5a6075'},
+           grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075'}},
+        y:{title:{display:true,text:'y(x)',color:'#5a6075'},
+           grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075'}}
+      }
+    }
+  });
+  document.getElementById('edo-legend').innerHTML = legendHTML;
+}
+
+function clearEDO(){
+  document.getElementById('edo-results').style.display='none';
+  document.getElementById('edo-err').style.display='none';
+  document.getElementById('edo-metrics').innerHTML='';
+  document.getElementById('edo-table-container').innerHTML='';
+  if(edoChart){edoChart.destroy();edoChart=null;}
 }
 
 </script>

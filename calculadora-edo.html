@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Resolvedor de EDO</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f5f4f0;
+      --surface: #ffffff;
+      --border: rgba(0,0,0,0.12);
+      --border-strong: rgba(0,0,0,0.25);
+      --text: #1a1a18;
+      --text-muted: #6b6a65;
+      --text-hint: #9e9d97;
+      --accent: #1a1a18;
+      --info-bg: #e6f1fb;
+      --info-text: #0c447c;
+      --info-border: #85b7eb;
+      --danger-bg: #fcebeb;
+      --danger-text: #a32d2d;
+      --success-bg: #eaf3de;
+      --success-text: #3b6d11;
+      --euler-color: #D85A30;
+      --heun-color: #185FA5;
+      --rk4-color: #1D9E75;
+      --real-color: #888780;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --font-sans: -apple-system, 'Segoe UI', system-ui, sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1c1c1a;
+        --surface: #252523;
+        --border: rgba(255,255,255,0.1);
+        --border-strong: rgba(255,255,255,0.2);
+        --text: #e8e7e1;
+        --text-muted: #9e9d97;
+        --text-hint: #6b6a65;
+        --accent: #e8e7e1;
+        --info-bg: #04345233;
+        --info-text: #85b7eb;
+        --info-border: #185FA5;
+        --danger-bg: #50131333;
+        --danger-text: #f09595;
+        --success-bg: #17340433;
+        --success-text: #97c459;
+      }
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    .page { max-width: 900px; margin: 0 auto; }
+
+    .page-header { margin-bottom: 2rem; }
+    .page-header h1 { font-size: 24px; font-weight: 500; letter-spacing: -0.02em; margin-bottom: 4px; }
+    .page-header p { font-size: 14px; color: var(--text-muted); }
+
+    .card {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .card-title {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-hint);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: 1rem;
+    }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; }
+
+    @media (max-width: 600px) {
+      .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr 1fr; }
+    }
+
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field label { font-size: 12px; color: var(--text-muted); }
+    .field input, .field select {
+      padding: 8px 10px;
+      font-size: 14px;
+      font-family: var(--font-mono);
+      border: 0.5px solid var(--border-strong);
+      border-radius: var(--radius-md);
+      background: var(--bg);
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .field input:focus { border-color: var(--text-muted); box-shadow: 0 0 0 2px rgba(0,0,0,0.06); }
+    .hint { font-size: 11px; color: var(--text-hint); }
+
+    .methods-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1rem; }
+    .method-btn {
+      padding: 7px 16px;
+      font-size: 13px;
+      font-family: var(--font-sans);
+      border: 0.5px solid var(--border-strong);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      background: var(--bg);
+      color: var(--text-muted);
+      transition: all 0.15s;
+    }
+    .method-btn.active { background: var(--info-bg); color: var(--info-text); border-color: var(--info-border); }
+
+    .run-btn {
+      width: 100%;
+      padding: 11px;
+      font-size: 14px;
+      font-weight: 500;
+      font-family: var(--font-sans);
+      border: none;
+      border-radius: var(--radius-md);
+      background: var(--accent);
+      color: var(--surface);
+      cursor: pointer;
+      transition: opacity 0.15s;
+      margin-top: 4px;
+    }
+    .run-btn:hover { opacity: 0.82; }
+    .run-btn:active { transform: scale(0.99); }
+
+    .tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 0.5px solid var(--border);
+      margin-bottom: 1.25rem;
+    }
+    .tab {
+      padding: 9px 18px;
+      font-size: 13px;
+      cursor: pointer;
+      color: var(--text-muted);
+      border-bottom: 2px solid transparent;
+      margin-bottom: -0.5px;
+      transition: all 0.12s;
+      user-select: none;
+    }
+    .tab.active { color: var(--text); border-bottom-color: var(--text); font-weight: 500; }
+    .tab:hover:not(.active) { color: var(--text); }
+
+    .result-panel { display: none; }
+    .result-panel.active { display: block; }
+
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 1.25rem;
+    }
+    .metric {
+      background: var(--bg);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+    }
+    .metric-label { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+    .metric-value { font-size: 17px; font-weight: 500; font-family: var(--font-mono); color: var(--text); }
+
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table {
+      width: 100%;
+      font-size: 12px;
+      border-collapse: collapse;
+      font-family: var(--font-mono);
+      min-width: 500px;
+    }
+    th {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-align: right;
+      padding: 7px 12px;
+      border-bottom: 0.5px solid var(--border);
+      white-space: nowrap;
+      background: var(--bg);
+    }
+    th:first-child { text-align: left; }
+    td {
+      text-align: right;
+      padding: 6px 12px;
+      border-bottom: 0.5px solid var(--border);
+      color: var(--text);
+      white-space: nowrap;
+    }
+    td:first-child { text-align: left; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--bg); }
+    .error-cell { color: var(--danger-text); }
+
+    .chart-wrap { position: relative; width: 100%; height: 300px; }
+
+    .legend-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-bottom: 12px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-dot {
+      width: 10px; height: 10px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    .error-msg {
+      background: var(--danger-bg);
+      color: var(--danger-text);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      font-size: 13px;
+      margin-bottom: 1rem;
+    }
+
+    .placeholder {
+      text-align: center;
+      padding: 4rem 1rem;
+      color: var(--text-hint);
+      font-size: 14px;
+    }
+
+    .placeholder-icon {
+      font-size: 32px;
+      margin-bottom: 12px;
+      opacity: 0.4;
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+  <div class="page-header">
+    <h1>Resolvedor de EDO</h1>
+    <p>Euler · Euler Mejorado (Heun) · Runge-Kutta 4</p>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Ecuación diferencial</div>
+    <div class="grid-2" style="margin-bottom: 12px;">
+      <div class="field">
+        <label>f(x, y) — lado derecho de dy/dx =</label>
+        <input type="text" id="f_edo" value="x**2 + y" placeholder="ej: x**2 + y" />
+        <span class="hint">Potencias: ** · Funciones: Math.exp(), Math.sin(), Math.cos(), Math.log()</span>
+      </div>
+      <div class="field">
+        <label>Solución real y(x) <span style="color:var(--text-hint)">(opcional — calcula el error)</span></label>
+        <input type="text" id="f_real" value="-x - 1 + 2 * Math.exp(x)" placeholder="ej: -x - 1 + 2 * Math.exp(x)" />
+      </div>
+    </div>
+    <div class="grid-4">
+      <div class="field">
+        <label>x₀</label>
+        <input type="number" id="x0" value="0" step="any" />
+      </div>
+      <div class="field">
+        <label>y₀</label>
+        <input type="number" id="y0" value="1" step="any" />
+      </div>
+      <div class="field">
+        <label>h (tamaño de paso)</label>
+        <input type="number" id="h" value="0.2" step="any" min="0.0001" />
+      </div>
+      <div class="field">
+        <label>Número de pasos</label>
+        <input type="number" id="pasos" value="10" min="1" max="500" />
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Métodos</div>
+    <div class="methods-row">
+      <button class="method-btn active" id="btn-euler" onclick="toggleMethod('euler')">Euler</button>
+      <button class="method-btn active" id="btn-heun" onclick="toggleMethod('heun')">Euler Mejorado (Heun)</button>
+      <button class="method-btn active" id="btn-rk4" onclick="toggleMethod('rk4')">Runge-Kutta 4</button>
+    </div>
+    <button class="run-btn" onclick="resolver()">Calcular →</button>
+  </div>
+
+  <div id="error-area"></div>
+
+  <div id="results-area" style="display:none;">
+    <div class="card">
+      <div class="card-title">Comparación visual</div>
+      <div id="legend-row" class="legend-row"></div>
+      <div class="chart-wrap">
+        <canvas id="compareChart" role="img" aria-label="Gráfico comparativo de soluciones numéricas"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="tabs" id="result-tabs"></div>
+      <div id="result-panels"></div>
+    </div>
+  </div>
+
+  <div id="placeholder-area" class="placeholder">
+    <div class="placeholder-icon">∫</div>
+    Configurá los parámetros y presioná <strong>Calcular</strong> para ver los resultados.
+  </div>
+</div>
+
+<script>
+  let activeChartInstance = null;
+  const activeMethods = { euler: true, heun: true, rk4: true };
+
+  function toggleMethod(m) {
+    activeMethods[m] = !activeMethods[m];
+    document.getElementById('btn-' + m).classList.toggle('active', activeMethods[m]);
+  }
+
+  function makeF(expr) { return new Function('x', 'y', 'with(Math){ return ' + expr + '; }'); }
+  function makeR(expr) { return new Function('x', 'with(Math){ return ' + expr + '; }'); }
+  function fmt(v, d) { d = d === undefined ? 5 : d; return (v === null || v === undefined) ? '—' : v.toFixed(d); }
+
+  function runEuler(f, fReal, x0, y0, h, pasos) {
+    const rows = []; let xn = x0, yn = y0;
+    for (let n = 0; n <= pasos; n++) {
+      const yr = fReal ? fReal(xn) : null;
+      const error = yr !== null ? Math.abs(yn - yr) : null;
+      const yn1 = yn + h * f(xn, yn);
+      rows.push({ n, xn, yn, yn1, yr, error });
+      if (n < pasos) { yn = yn1; xn = xn + h; }
+    }
+    return rows;
+  }
+
+  function runHeun(f, fReal, x0, y0, h, pasos) {
+    const rows = []; let xn = x0, yn = y0;
+    for (let n = 0; n <= pasos; n++) {
+      const yr = fReal ? fReal(xn) : null;
+      const error = yr !== null ? Math.abs(yn - yr) : null;
+      const k1 = f(xn, yn);
+      const yPred = yn + h * k1;
+      const xn1 = xn + h;
+      const k2 = f(xn1, yPred);
+      const yn1 = yn + (h / 2) * (k1 + k2);
+      rows.push({ n, xn, yn, yPred, yn1, yr, error });
+      if (n < pasos) { yn = yn1; xn = xn1; }
+    }
+    return rows;
+  }
+
+  function runRK4(f, fReal, x0, y0, h, pasos) {
+    const rows = []; let xn = x0, yn = y0;
+    for (let n = 0; n <= pasos; n++) {
+      const yr = fReal ? fReal(xn) : null;
+      const error = yr !== null ? Math.abs(yn - yr) : null;
+      const k1 = f(xn, yn);
+      const k2 = f(xn + h/2, yn + (h/2)*k1);
+      const k3 = f(xn + h/2, yn + (h/2)*k2);
+      const k4 = f(xn + h, yn + h*k3);
+      const yn1 = yn + (h/6)*(k1 + 2*k2 + 2*k3 + k4);
+      rows.push({ n, xn, yn, k1, k2, k3, k4, yn1, yr, error });
+      if (n < pasos) { yn = yn1; xn = xn + h; }
+    }
+    return rows;
+  }
+
+  function maxError(rows) {
+    const errs = rows.map(r => r.error).filter(e => e !== null && e !== undefined);
+    return errs.length ? Math.max(...errs) : null;
+  }
+
+  function buildMetrics(rows, hasReal) {
+    const last = rows[rows.length - 1];
+    if (!hasReal) return '';
+    const me = maxError(rows);
+    return `<div class="metrics-row">
+      <div class="metric"><div class="metric-label">Error máximo</div><div class="metric-value">${me !== null ? me.toFixed(6) : '—'}</div></div>
+      <div class="metric"><div class="metric-label">Y final (aprox)</div><div class="metric-value">${last.yn.toFixed(5)}</div></div>
+      <div class="metric"><div class="metric-label">Y final (real)</div><div class="metric-value">${last.yr !== null ? last.yr.toFixed(5) : '—'}</div></div>
+    </div>`;
+  }
+
+  function buildEulerTable(rows, hasReal) {
+    let h = `<div class="table-wrap"><table><thead><tr><th>n</th><th>Xₙ</th><th>Yₙ</th><th>Yₙ₊₁</th>`;
+    if (hasReal) h += `<th>Y real</th><th>Error</th>`;
+    h += `</tr></thead><tbody>`;
+    for (const r of rows) {
+      h += `<tr><td>${r.n}</td><td>${fmt(r.xn,3)}</td><td>${fmt(r.yn)}</td><td>${fmt(r.yn1)}</td>`;
+      if (hasReal) h += `<td>${fmt(r.yr)}</td><td class="error-cell">${fmt(r.error)}</td>`;
+      h += `</tr>`;
+    }
+    return h + `</tbody></table></div>`;
+  }
+
+  function buildHeunTable(rows, hasReal) {
+    let h = `<div class="table-wrap"><table><thead><tr><th>n</th><th>Xₙ</th><th>Yₙ</th><th>Y*ₙ₊₁</th><th>Yₙ₊₁</th>`;
+    if (hasReal) h += `<th>Y real</th><th>Error</th>`;
+    h += `</tr></thead><tbody>`;
+    for (const r of rows) {
+      h += `<tr><td>${r.n}</td><td>${fmt(r.xn,3)}</td><td>${fmt(r.yn)}</td><td>${fmt(r.yPred)}</td><td>${fmt(r.yn1)}</td>`;
+      if (hasReal) h += `<td>${fmt(r.yr)}</td><td class="error-cell">${fmt(r.error)}</td>`;
+      h += `</tr>`;
+    }
+    return h + `</tbody></table></div>`;
+  }
+
+  function buildRK4Table(rows, hasReal) {
+    let h = `<div class="table-wrap"><table><thead><tr><th>n</th><th>Xₙ</th><th>Yₙ</th><th>K1</th><th>K2</th><th>K3</th><th>K4</th><th>Yₙ₊₁</th>`;
+    if (hasReal) h += `<th>Y real</th><th>Error</th>`;
+    h += `</tr></thead><tbody>`;
+    for (const r of rows) {
+      h += `<tr><td>${r.n}</td><td>${fmt(r.xn,3)}</td><td>${fmt(r.yn)}</td><td>${fmt(r.k1)}</td><td>${fmt(r.k2)}</td><td>${fmt(r.k3)}</td><td>${fmt(r.k4)}</td><td>${fmt(r.yn1)}</td>`;
+      if (hasReal) h += `<td>${fmt(r.yr)}</td><td class="error-cell">${fmt(r.error)}</td>`;
+      h += `</tr>`;
+    }
+    return h + `</tbody></table></div>`;
+  }
+
+  function switchTab(key) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.result-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + key).classList.add('active');
+    document.getElementById('panel-' + key).classList.add('active');
+  }
+
+  function showError(msg) {
+    const ea = document.getElementById('error-area');
+    ea.innerHTML = `<div class="error-msg">${msg}</div>`;
+  }
+
+  function resolver() {
+    document.getElementById('error-area').innerHTML = '';
+
+    const x0 = parseFloat(document.getElementById('x0').value);
+    const y0 = parseFloat(document.getElementById('y0').value);
+    const h = parseFloat(document.getElementById('h').value);
+    const pasos = parseInt(document.getElementById('pasos').value);
+    const fEdoStr = document.getElementById('f_edo').value.trim();
+    const fRealStr = document.getElementById('f_real').value.trim();
+
+    let f, fReal = null;
+    try { f = makeF(fEdoStr); f(x0, y0); } catch(e) { showError('Error en f(x,y): ' + e.message); return; }
+    if (fRealStr) {
+      try { fReal = makeR(fRealStr); fReal(x0); } catch(e) { showError('Error en solución real: ' + e.message); return; }
+    }
+
+    const hasReal = !!fReal;
+    const results = {};
+
+    if (activeMethods.euler) {
+      try { results.euler = runEuler(f, fReal, x0, y0, h, pasos); }
+      catch(e) { showError('Error ejecutando Euler: ' + e.message); return; }
+    }
+    if (activeMethods.heun) {
+      try { results.heun = runHeun(f, fReal, x0, y0, h, pasos); }
+      catch(e) { showError('Error ejecutando Heun: ' + e.message); return; }
+    }
+    if (activeMethods.rk4) {
+      try { results.rk4 = runRK4(f, fReal, x0, y0, h, pasos); }
+      catch(e) { showError('Error ejecutando RK4: ' + e.message); return; }
+    }
+
+    const baseRows = results.euler || results.heun || results.rk4;
+    if (!baseRows) { showError('Seleccioná al menos un método.'); return; }
+
+    const methodList = [];
+    if (results.euler) methodList.push({ key: 'euler', label: 'Euler' });
+    if (results.heun)  methodList.push({ key: 'heun',  label: 'Euler Mejorado' });
+    if (results.rk4)   methodList.push({ key: 'rk4',   label: 'Runge-Kutta 4' });
+
+    let tabsHtml = '', panelsHtml = '';
+    methodList.forEach((m, i) => {
+      const isFirst = i === 0;
+      tabsHtml += `<div class="tab ${isFirst?'active':''}" onclick="switchTab('${m.key}')" id="tab-${m.key}">${m.label}</div>`;
+      let inner = buildMetrics(results[m.key], hasReal);
+      if (m.key === 'euler') inner += buildEulerTable(results.euler, hasReal);
+      else if (m.key === 'heun') inner += buildHeunTable(results.heun, hasReal);
+      else inner += buildRK4Table(results.rk4, hasReal);
+      panelsHtml += `<div class="result-panel ${isFirst?'active':''}" id="panel-${m.key}">${inner}</div>`;
+    });
+
+    document.getElementById('result-tabs').innerHTML = tabsHtml;
+    document.getElementById('result-panels').innerHTML = panelsHtml;
+
+    const datasets = [];
+    const legendItems = [];
+    const colorMap = { euler: '#D85A30', heun: '#185FA5', rk4: '#1D9E75' };
+    const labelMap = { euler: 'Euler', heun: 'Euler Mejorado', rk4: 'RK4' };
+    const dashMap = { euler: [], heun: [5,3], rk4: [10,4] };
+
+    for (const m of methodList) {
+      datasets.push({
+        label: labelMap[m.key],
+        data: results[m.key].map(r => ({ x: r.xn, y: r.yn })),
+        borderColor: colorMap[m.key],
+        backgroundColor: colorMap[m.key] + '18',
+        tension: 0.3,
+        pointRadius: 3,
+        borderWidth: 2,
+        borderDash: dashMap[m.key],
+      });
+      legendItems.push(`<span class="legend-item"><span class="legend-dot" style="background:${colorMap[m.key]}"></span>${labelMap[m.key]}</span>`);
+    }
+
+    if (hasReal) {
+      const xs = baseRows.map(r => r.xn);
+      datasets.push({
+        label: 'Solución real',
+        data: xs.map(x => ({ x, y: fReal(x) })),
+        borderColor: '#888780',
+        backgroundColor: 'transparent',
+        tension: 0.4,
+        pointRadius: 0,
+        borderWidth: 1.5,
+        borderDash: [2, 3],
+      });
+      legendItems.push(`<span class="legend-item"><span class="legend-dot" style="background:#888780"></span>Solución real</span>`);
+    }
+
+    document.getElementById('legend-row').innerHTML = legendItems.join('');
+
+    if (activeChartInstance) { activeChartInstance.destroy(); }
+    activeChartInstance = new Chart(document.getElementById('compareChart'), {
+      type: 'line',
+      data: { datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { mode: 'index', intersect: false }
+        },
+        scales: {
+          x: {
+            type: 'linear',
+            title: { display: true, text: 'x', font: { size: 12 } },
+            ticks: { font: { size: 11 }, color: '#888780' },
+            grid: { color: 'rgba(0,0,0,0.06)' }
+          },
+          y: {
+            title: { display: true, text: 'y', font: { size: 12 } },
+            ticks: { font: { size: 11 }, color: '#888780' },
+            grid: { color: 'rgba(0,0,0,0.06)' }
+          }
+        }
+      }
+    });
+
+    document.getElementById('results-area').style.display = 'block';
+    document.getElementById('placeholder-area').style.display = 'none';
+    document.getElementById('results-area').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+</script>
+</body>
+</html>
