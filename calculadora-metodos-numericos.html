@@ -3260,13 +3260,44 @@ function evalLimit(val) {
   }
 }
 
-// Algoritmo PRNG Mulberry32 (usado cuando hay semilla)
-function mulberry32(a) {
-  return function() {
-    var t = a += 0x6D2B79F5;
-    t = Math.imul(t ^ t >>> 15, t | 1);
-    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+// Implementación de Mersenne Twister (MT19937) compatible con Python
+class MersenneTwister {
+  constructor(seed) {
+    this.mt = new Array(624);
+    this.index = 624;
+    this.mt[0] = seed >>> 0;
+    for (let i = 1; i < 624; i++) {
+      let s = this.mt[i - 1] ^ (this.mt[i - 1] >>> 30);
+      // Evitar pérdida de precisión en JS usando aritmética de enteros
+      this.mt[i] = ((((s & 0xffff0000) >>> 16) * 1812433253) << 16) + (s & 0x0000ffff) * 1812433253 + i;
+      this.mt[i] >>>= 0;
+    }
+  }
+
+  extractNumber() {
+    if (this.index >= 624) this.generateNumbers();
+    let y = this.mt[this.index++];
+    y ^= y >>> 11;
+    y ^= (y << 7) & 0x9d2c5680;
+    y ^= (y << 15) & 0xefc60000;
+    y ^= y >>> 18;
+    return y >>> 0;
+  }
+
+  generateNumbers() {
+    for (let i = 0; i < 624; i++) {
+      let y = (this.mt[i] & 0x80000000) + (this.mt[(i + 1) % 624] & 0x7fffffff);
+      this.mt[i] = this.mt[(i + 397) % 624] ^ (y >>> 1);
+      if (y % 2 !== 0) this.mt[i] ^= 0x9908b0df;
+    }
+    this.index = 0;
+  }
+
+  // Replica EXACTAMENTE cómo Python crea su random.random() de 53 bits
+  random() {
+    let a = this.extractNumber() >>> 5;
+    let b = this.extractNumber() >>> 6;
+    return (a * 67108864.0 + b) * (1.0 / 9007199254740992.0);
   }
 }
 
@@ -3278,8 +3309,9 @@ function randomUniform(a, b) {
 function initSeed() {
   var seed = document.getElementById('mc-seed').value.trim();
   if (seed !== '') {
-    // Con semilla: usa Mulberry32 como base de randomUniform
-    customRandom = mulberry32(parseInt(seed));
+    // Usamos el Mersenne Twister idéntico al de Python
+    var mt = new MersenneTwister(parseInt(seed));
+    customRandom = function() { return mt.random(); };
   } else {
     // Sin semilla: usa Math.random (no reproducible)
     customRandom = Math.random;
@@ -3363,19 +3395,29 @@ function mcLimpiar(){
 function mcCalcPi(){
   mcHideErr();
   mcDestroyChart();
-  initSeed();
+  
+  // 1. Force use of the seeded generator
+  initSeed(); 
+  
   var n=parseInt(document.getElementById('mc-pi-n').value);
   if(isNaN(n)||n<100){ mcShowErr('N debe ser al menos 100.'); return; }
 
   var x=[],y=[],dentro=[];
   var exitos=0;
+  
+  // Generamos primero TODOS los x, luego TODOS los y
+  // Esto replica exactamente np.random.uniform(-1,1,n) llamado dos veces:
+  //   x = np.random.uniform(-1, 1, n)  → consume valores MT[0..n-1]
+  //   y = np.random.uniform(-1, 1, n)  → consume valores MT[n..2n-1]
+  for(var i=0;i<n;i++) x.push(-1 + customRandom() * 2);
+  for(var i=0;i<n;i++) y.push(-1 + customRandom() * 2);
+
   for(var i=0;i<n;i++){
-    var xi=randomUniform(-1,1), yi=randomUniform(-1,1);
-    x.push(xi); y.push(yi);
-    var d=(xi*xi+yi*yi<=1);
+    var d = (x[i]*x[i] + y[i]*y[i] <= 1);
     dentro.push(d);
     if(d) exitos++;
   }
+  
   var piEst=4*(exitos/n);
   var error=Math.abs(piEst-Math.PI);
 
@@ -3508,7 +3550,10 @@ function mcCalcIntegral2(){
   if(isNaN(n)||n<100){ mcShowErr('N debe ser al menos 100.'); return; }
   var f; try{ f=parseF(fnStr); f(a); }catch(e){ mcShowErr('f(x) inválida: '+e.message); return; }
 
-  var vals=[]; for(var i=0;i<n;i++) vals.push(f(randomUniform(a,b)));
+  // Generamos todos los x primero en un bloque — replica numpy.random.uniform() en bloques
+  var xVals=new Float64Array(n);
+  for(var i=0;i<n;i++) xVals[i]=randomUniform(a,b);
+  var vals=[]; for(var i=0;i<n;i++) vals.push(f(xVals[i]));
   var mean=vals.reduce(function(s,v){return s+v;},0)/n;
   var integral=(b-a)*mean;
   var varY=vals.reduce(function(s,v){return s+(v-mean)*(v-mean);},0)/(n-1);
@@ -3527,14 +3572,14 @@ function mcCalcIntegral2(){
   mcShowResults(metrics, true, false);
   document.getElementById('mc-chart-title').textContent='f(x) vs puntos muestreados';
 
-  // Gráfico: función y puntos de muestra
+  // Gráfico: función y puntos de muestra — reutilizamos xVals ya generados (sin consumir más MT)
   var ctx=document.getElementById('mc-chart').getContext('2d');
   var nSmooth=200, sx=[], sy=[];
   for(var i=0;i<=nSmooth;i++){ var xi=a+(b-a)*i/nSmooth; sx.push(xi); sy.push(f(xi)); }
   var maxPts=Math.min(n,800);
   var scX=[],scY=[];
   for(var i=0;i<maxPts;i++){
-    var xi=randomUniform(a,b); scX.push(xi); scY.push(f(xi));
+    scX.push(xVals[i]); scY.push(f(xVals[i]));
   }
   mcChart=new Chart(ctx,{
     type:'line',
@@ -3587,11 +3632,11 @@ function mcCalcIntegralDoble(){
 
   var area=(x2-x1)*(y2-y1);
   var vals=[];
-  for(var i=0;i<n;i++){
-    var xi=randomUniform(x1,x2);
-    var yi=randomUniform(y1,y2);
-    vals.push(fxy(xi,yi));
-  }
+  // Generamos todos los x primero, luego todos los y — replica numpy.random.uniform() en bloques
+  var xArr=new Float64Array(n), yArr=new Float64Array(n);
+  for(var i=0;i<n;i++) xArr[i]=randomUniform(x1,x2);
+  for(var i=0;i<n;i++) yArr[i]=randomUniform(y1,y2);
+  for(var i=0;i<n;i++) vals.push(fxy(xArr[i],yArr[i]));
   var mean=vals.reduce(function(s,v){return s+v;},0)/n;
   var integral=area*mean;
   var varY=vals.reduce(function(s,v){return s+(v-mean)*(v-mean);},0)/(n-1);
@@ -3660,11 +3705,12 @@ function mcCalcCurvas(){
 
   var xArr=[],yArr=[],exitos=[];
   var nEx=0;
+  // Generamos todos los x primero, luego todos los y — replica numpy.random.uniform() en bloques
+  for(var i=0;i<n;i++) xArr.push(randomUniform(a,b));
+  for(var i=0;i<n;i++) yArr.push(randomUniform(yMin,yMax));
   for(var i=0;i<n;i++){
-    var xi=randomUniform(a,b);
-    var yi=randomUniform(yMin,yMax);
-    var ok=(yi<=fTecho(xi)&&yi>=fPiso(xi));
-    xArr.push(xi); yArr.push(yi); exitos.push(ok);
+    var ok=(yArr[i]<=fTecho(xArr[i])&&yArr[i]>=fPiso(xArr[i]));
+    exitos.push(ok);
     if(ok) nEx++;
   }
   var areaRect=(b-a)*(yMax-yMin);

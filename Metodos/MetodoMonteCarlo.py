@@ -3,7 +3,10 @@ import scipy.stats as stats
 import matplotlib.pyplot as plt
 from tabulate import tabulate
 
-def integral_monte_carlo(f, a, b, confianza, n=10000, hacerGrafico=True):
+def integral_monte_carlo(f, a, b, confianza, n=10000, hacerGrafico=True, seed=None):
+    if seed is not None:
+        np.random.seed(seed)
+        
     # 1. Generación de puntos y evaluación
     x_aleatorios = np.random.uniform(a, b, n)
     y_evaluados = f(x_aleatorios)
@@ -43,7 +46,10 @@ def integral_monte_carlo(f, a, b, confianza, n=10000, hacerGrafico=True):
 
     return resultado, sigma
 
-def integral_doble_monte_carlo(f, x_min, x_max, y_min, y_max, confianza, n=10000):
+def integral_doble_monte_carlo(f, x_min, x_max, y_min, y_max, confianza, n=10000, seed=None):
+    if seed is not None:
+        np.random.seed(seed)
+        
     # 1. Muestreo de puntos (x, y) en el rectángulo
     x_random = np.random.uniform(x_min, x_max, n)
     y_random = np.random.uniform(y_min, y_max, n)
@@ -55,7 +61,7 @@ def integral_doble_monte_carlo(f, x_min, x_max, y_min, y_max, confianza, n=10000
     volumen_estimado = area_base * mean_z
     # 4. Estadística Detallada
     sigma = np.std(z_evaluados, ddof=1) # Desviación estándar de f(xi, yi)
-    ee = sigma / np.sqrt(n) # Error Estándar [cite: 167]
+    ee = sigma / np.sqrt(n) # Error Estándar
     # 5. Intervalo de Confianza (IC)
     valores_z = {
         0.90: 1.645, 
@@ -101,6 +107,7 @@ def realizar_grafico_monte_carlo(f, a, b, x_pts, y_pts):
     plt.legend()
     plt.grid(True, linestyle=':', alpha=0.6)
     plt.show()
+
 # =====================================================================
 # 1. MUESTREO POR RECHAZO (Para Ejercicios 1 y 10)
 # =====================================================================
@@ -194,8 +201,8 @@ def montecarlo_error_maximo(f, a, b, confianza, error_max, n_piloto=1000, seed=N
     print(f"Para garantizar un error < {error_max:.8f} al {confianza*100:.8f}%, se necesitan N = {n_necesario} puntos.")
     
     # 3. Ejecutar la integración real con el N calculado
-    # Se le pasa la misma semilla si la función integral_monte_carlo la soporta
-    "return integral_monte_carlo(f, a, b, confianza, n=n_necesario, hacerGrafico=False)"
+    # Descomentado y arreglado para retornar el valor real y pasar el seed
+    return integral_monte_carlo(f, a, b, confianza, n=n_necesario, hacerGrafico=False, seed=seed)
 
 # =====================================================================
 # 3. SIMULADORES ESPECÍFICOS (Para Ejercicios 11 y 12)
@@ -256,3 +263,40 @@ def simulador_opcion_europea(S0, K, T, r, sigma, n=100000, seed=None):
     print(f"Precio Call (Black-Scholes): ${precio_bs:.8f}")
     print(f"Diferencia de validación: ${abs(precio_mc - precio_bs):.8f}")
     print(f"VaR 99% a 1 día de la acción: ${var_99:.8f}")
+
+
+# Llamadas de prueba (ahora funcionarán correctamente sin lanzar error)
+#montecarlo_rechazo_pi(n=10000, hacerGrafico=True, seed=29)
+#integral_doble_monte_carlo(lambda x, y: np.exp(x + y), 0, np.pi, 0, np.pi, 0.90, n=50000, seed=145)
+
+#montecarlo_error_maximo(lambda x: np.exp(-x), 0, np.pi, 0.9, error_max=0.01, seed=29)
+
+# 1. Definimos la función matemática a integrar
+def mi_funcion(x):
+    return np.exp(-x)
+
+# 2. Configuramos los parámetros de la simulación
+limite_inferior = 0
+limite_superior = np.pi
+nivel_confianza = 0.90
+cantidad_puntos = 15000 # Aquí nosotros definimos el N directamente
+
+# 3. Llamamos al método (asumiendo que estás en el mismo script o lo importaste)
+resultado, sigma = integral_monte_carlo(
+    f=mi_funcion,
+    a=limite_inferior,
+    b=limite_superior,
+    confianza=nivel_confianza,
+    n=cantidad_puntos,
+    hacerGrafico=True, # Levanta el gráfico de Matplotlib
+    seed=29            # Fijamos la semilla para que el resultado sea reproducible
+)
+
+#resultado = montecarlo_error_maximo(
+#    f = lambda x: np.exp(-x), # Tu función f(x)
+#    a = 0,                    # Límite inferior
+#    b = np.pi,                # Límite superior
+#    confianza = 0.90,         # 90% de confianza
+#    error_max = 0.01,         # El error máximo permitido
+#    seed = 29                 # Semilla opcional
+#)
