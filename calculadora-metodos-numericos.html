@@ -1621,22 +1621,60 @@
 
       <div class="card">
         <div class="card-title">Parámetros numéricos</div>
-        <div class="grid-4">
+
+        <!-- fila 1: x0 + modo condición inicial -->
+        <div class="grid-2" style="margin-bottom:14px">
           <div class="field-group">
-            <label>x₀ — valor inicial</label>
+            <label>x₀ — valor inicial en x</label>
             <input id="edo-x0" type="number" value="0" step="any"/>
           </div>
           <div class="field-group">
-            <label>y₀ — condición inicial</label>
-            <input id="edo-y0" type="number" value="1" step="any"/>
+            <!-- toggle y0 vs intervalo -->
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <label style="margin-bottom:0">Condición inicial</label>
+              <div style="display:flex;border:1px solid var(--border2);border-radius:6px;overflow:hidden;font-family:var(--mono);font-size:10px">
+                <button id="toggle-y0-btn" onclick="edoSetCondMode('y0')"
+                  style="padding:3px 10px;border:none;cursor:pointer;background:var(--accent);color:#fff;transition:background 0.15s">y₀</button>
+                <button id="toggle-intervalo-btn" onclick="edoSetCondMode('intervalo')"
+                  style="padding:3px 10px;border:none;cursor:pointer;background:var(--surface3);color:var(--text2);transition:background 0.15s">[a,b]</button>
+              </div>
+            </div>
+            <div id="edo-cond-y0">
+              <input id="edo-y0" type="number" value="1" step="any" placeholder="y en x₀"/>
+            </div>
+            <div id="edo-cond-intervalo" style="display:none;display:none">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <input id="edo-a" type="number" value="0" step="any" placeholder="a — inicio"/>
+                <input id="edo-b" type="number" value="2" step="any" placeholder="b — fin"/>
+              </div>
+              <div class="fn-hint" style="margin-top:5px">El intervalo [a, b] define el rango de x. x₀ = a.</div>
+            </div>
           </div>
+        </div>
+
+        <!-- fila 2: paso -->
+        <div class="grid-2" style="margin-bottom:14px">
           <div class="field-group">
-            <label>h — tamaño de paso</label>
-            <input id="edo-h" type="number" value="0.2" step="any" min="0.0001"/>
+            <!-- toggle h vs n -->
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <label style="margin-bottom:0">Tamaño de paso</label>
+              <div style="display:flex;border:1px solid var(--border2);border-radius:6px;overflow:hidden;font-family:var(--mono);font-size:10px">
+                <button id="toggle-h-btn" onclick="edoSetStepMode('h')"
+                  style="padding:3px 10px;border:none;cursor:pointer;background:var(--accent);color:#fff;transition:background 0.15s">h</button>
+                <button id="toggle-n-btn" onclick="edoSetStepMode('n')"
+                  style="padding:3px 10px;border:none;cursor:pointer;background:var(--surface3);color:var(--text2);transition:background 0.15s">n</button>
+              </div>
+            </div>
+            <div id="edo-step-h">
+              <input id="edo-h" type="number" value="0.2" step="any" min="0.0001" placeholder="h — tamaño de paso"/>
+            </div>
+            <div id="edo-step-n" style="display:none">
+              <input id="edo-n" type="number" value="10" min="1" max="5000" step="1" placeholder="n — subintervalos"/>
+            </div>
           </div>
-          <div class="field-group">
-            <label>Pasos</label>
-            <input id="edo-pasos" type="number" value="10" min="1" max="500"/>
+          <div class="field-group" id="edo-pasos-wrap">
+            <label>Pasos (iteraciones)</label>
+            <input id="edo-pasos" type="number" value="10" min="1" max="5000"/>
           </div>
         </div>
         <div class="field-group" style="margin-bottom:14px">
@@ -4122,18 +4160,87 @@ function edoTableRK4(rows, fReal){
   return head + body + '</tbody></table></div>';
 }
 
+function edoSetCondMode(mode){
+  var isIntervalo = mode === 'intervalo';
+  document.getElementById('edo-cond-y0').style.display        = isIntervalo ? 'none' : 'block';
+  document.getElementById('edo-cond-intervalo').style.display = isIntervalo ? 'block' : 'none';
+  document.getElementById('toggle-y0-btn').style.background        = isIntervalo ? 'var(--surface3)' : 'var(--accent)';
+  document.getElementById('toggle-y0-btn').style.color             = isIntervalo ? 'var(--text2)'    : '#fff';
+  document.getElementById('toggle-intervalo-btn').style.background = isIntervalo ? 'var(--accent)'   : 'var(--surface3)';
+  document.getElementById('toggle-intervalo-btn').style.color      = isIntervalo ? '#fff'            : 'var(--text2)';
+  // Si se activa intervalo y modo paso es n, mostrar/ocultar campo pasos
+  edoUpdatePasosVisibility();
+}
+
+function edoSetStepMode(mode){
+  var isN = mode === 'n';
+  document.getElementById('edo-step-h').style.display = isN ? 'none'  : 'block';
+  document.getElementById('edo-step-n').style.display = isN ? 'block' : 'none';
+  document.getElementById('toggle-h-btn').style.background = isN ? 'var(--surface3)' : 'var(--accent)';
+  document.getElementById('toggle-h-btn').style.color      = isN ? 'var(--text2)'    : '#fff';
+  document.getElementById('toggle-n-btn').style.background = isN ? 'var(--accent)'   : 'var(--surface3)';
+  document.getElementById('toggle-n-btn').style.color      = isN ? '#fff'            : 'var(--text2)';
+  edoUpdatePasosVisibility();
+}
+
+function edoUpdatePasosVisibility(){
+  // El campo "Pasos" solo hace falta cuando: modo h (para definir cuántos pasos dar)
+  // Si modo n + intervalo → pasos = n, campo innecesario
+  // Si modo n + y0       → n es pasos, campo innecesario  
+  // Si modo h + intervalo → pasos se calcula, campo innecesario
+  // Si modo h + y0       → pasos es necesario
+  var isN         = document.getElementById('edo-step-n').style.display !== 'none';
+  var isIntervalo = document.getElementById('edo-cond-intervalo').style.display !== 'none';
+  var pasosWrap = document.getElementById('edo-pasos-wrap');
+  if(pasosWrap) pasosWrap.style.display = (!isN && !isIntervalo) ? 'flex' : 'none';
+}
+
 function calcEDO(){
   document.getElementById('edo-err').style.display = 'none';
   var fnStr = document.getElementById('edo-fn').value.trim();
   var realStr = document.getElementById('edo-real').value.trim();
-  var x0 = parseFloat(document.getElementById('edo-x0').value);
-  var y0 = parseFloat(document.getElementById('edo-y0').value);
-  var h  = parseFloat(document.getElementById('edo-h').value);
-  var pasos = parseInt(document.getElementById('edo-pasos').value);
   var metodo = document.getElementById('edo-metodo').value;
 
-  if(isNaN(x0)||isNaN(y0)||isNaN(h)||isNaN(pasos)||h<=0||pasos<1){
-    showErr('edo-err','Verificá que todos los valores numéricos sean válidos. h > 0 y pasos ≥ 1.'); return;
+  // Leer condición inicial (modo y0 o intervalo)
+  var condMode = document.getElementById('edo-cond-intervalo').style.display === 'none' ? 'y0' : 'intervalo';
+  var x0, y0, xf;
+  if(condMode === 'y0'){
+    x0 = parseFloat(document.getElementById('edo-x0').value);
+    y0 = parseFloat(document.getElementById('edo-y0').value);
+    xf = null;
+    if(isNaN(x0)||isNaN(y0)){ showErr('edo-err','Verificá x₀ e y₀.'); return; }
+  } else {
+    var a = parseFloat(document.getElementById('edo-a').value);
+    var b = parseFloat(document.getElementById('edo-b').value);
+    y0 = parseFloat(document.getElementById('edo-y0').value);
+    if(isNaN(a)||isNaN(b)||isNaN(y0)){ showErr('edo-err','Verificá el intervalo [a,b] e y₀.'); return; }
+    if(b <= a){ showErr('edo-err','El extremo b debe ser mayor que a.'); return; }
+    x0 = a; xf = b;
+  }
+
+  // Leer tamaño de paso (modo h o n)
+  var stepMode = document.getElementById('edo-step-n').style.display === 'none' ? 'h' : 'n';
+  var h, pasos;
+  if(stepMode === 'h'){
+    h = parseFloat(document.getElementById('edo-h').value);
+    pasos = parseInt(document.getElementById('edo-pasos').value);
+    if(isNaN(h)||h<=0||isNaN(pasos)||pasos<1){ showErr('edo-err','h > 0 y pasos ≥ 1.'); return; }
+    if(condMode === 'intervalo'){
+      // Si hay intervalo, ignorar pasos y calcular desde xf
+      pasos = Math.round((xf - x0) / h);
+      if(pasos < 1){ showErr('edo-err','El paso h es demasiado grande para el intervalo dado.'); return; }
+    }
+  } else {
+    pasos = parseInt(document.getElementById('edo-n').value);
+    if(isNaN(pasos)||pasos<1){ showErr('edo-err','n ≥ 1.'); return; }
+    if(condMode === 'intervalo'){
+      h = (xf - x0) / pasos;
+    } else {
+      // n sin intervalo: n es la cantidad de pasos, necesita h del campo h también
+      // Pero el usuario eligió n, así que pedimos un h auxiliar o un xf
+      // En realidad: sin intervalo y con n, no podemos calcular h. Mostrar aviso.
+      showErr('edo-err','Para usar n como número de pasos, activá también el modo intervalo [a,b] para que h = (b−a)/n se calcule automáticamente.'); return;
+    }
   }
   var f;
   try{ f = parseFxy(fnStr); f(x0, y0); }
@@ -4184,7 +4291,7 @@ function calcEDO(){
     if(errRK!==null) metricsHTML += mCard('Error final RK4', errRK.toExponential(4), errRK<1e-6?'ok':'warn');
   }
   if(fReal) metricsHTML += mCard('y real('+xFinal.toFixed(4)+')', fReal(xFinal).toFixed(8), '');
-  metricsHTML += mCard('h', h, '')+mCard('Pasos', pasos, '');
+  metricsHTML += mCard('h', h.toFixed(6).replace(/0+$/,'').replace(/\.$/,''), '')+mCard('Pasos (n)', pasos, '');
 
   document.getElementById('edo-metrics').innerHTML = metricsHTML;
 
