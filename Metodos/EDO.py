@@ -164,4 +164,4 @@ print("\n\n=== EJECUCIÓN: MÉTODO DE RUNGE-KUTTA 4 ===")
 resolver_edo_rk4(mi_edo, solucion_real, x_inicial, y_inicial, tamano_paso, numero_pasos)
 
 print("\n=== GENERANDO GRÁFICO ===")
-#graficar_campo_y_solucion(mi_edo, solucion_real, x_inicial, y_inicial, x_final, tamano_paso)
+graficar_campo_y_solucion(mi_edo, solucion_real, x_inicial, y_inicial, x_final, tamano_paso)

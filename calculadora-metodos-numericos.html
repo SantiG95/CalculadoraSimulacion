@@ -1856,6 +1856,7 @@ function calcBiseccion(){
   drawBisChart(f,a,b,raiz);
 }
 
+
 function drawBisChart(f,a0,b0,raiz){
   var margen=(b0-a0)*0.35;
   var x0=a0-margen, x1=b0+margen;
@@ -4098,14 +4099,15 @@ function edoTableEuler(rows, fReal){
     +'</tr></thead><tbody>';
   var body = rows.map(function(r, i){
     var yr = hasReal ? fReal(r.x) : null;
-    var err = hasReal ? Math.abs(r.y - yr) : null;
+    // Solo calculamos el error si hay función real y no es la fila inicial (i > 0)
+    var errDisplay = (hasReal && i > 0) ? Math.abs(r.y - yr).toExponential(4) : "-";
     var last = i === rows.length-1;
     return '<tr'+(last?' class="row-final"':'')+'>'
       +'<td>'+r.n+'</td>'
       +'<td>'+r.x.toFixed(4)+'</td>'
       +'<td>'+r.y.toFixed(6)+'</td>'
       +'<td>'+r.y1.toFixed(6)+'</td>'
-      +(hasReal?'<td>'+yr.toFixed(6)+'</td><td>'+err.toExponential(4)+'</td>':'')
+      +(hasReal?'<td>'+(yr!==null?yr.toFixed(6):'-')+'</td><td>'+errDisplay+'</td>':'')
       +'</tr>';
   }).join('');
   return head + body + '</tbody></table></div>';
@@ -4120,7 +4122,8 @@ function edoTableHeun(rows, fReal){
     +'</tr></thead><tbody>';
   var body = rows.map(function(r, i){
     var yr = hasReal ? fReal(r.x) : null;
-    var err = hasReal ? Math.abs(r.y - yr) : null;
+    // Solo calculamos el error si hay función real y no es la fila inicial (i > 0)
+    var errDisplay = (hasReal && i > 0) ? Math.abs(r.y - yr).toExponential(4) : "-";
     var last = i === rows.length-1;
     return '<tr'+(last?' class="row-final"':'')+'>'
       +'<td>'+r.n+'</td>'
@@ -4128,7 +4131,7 @@ function edoTableHeun(rows, fReal){
       +'<td>'+r.y.toFixed(6)+'</td>'
       +'<td>'+r.yp.toFixed(6)+'</td>'
       +'<td>'+r.y1.toFixed(6)+'</td>'
-      +(hasReal?'<td>'+yr.toFixed(6)+'</td><td>'+err.toExponential(4)+'</td>':'')
+      +(hasReal?'<td>'+(yr!==null?yr.toFixed(6):'-')+'</td><td>'+errDisplay+'</td>':'')
       +'</tr>';
   }).join('');
   return head + body + '</tbody></table></div>';
@@ -4143,7 +4146,8 @@ function edoTableRK4(rows, fReal){
     +'</tr></thead><tbody>';
   var body = rows.map(function(r, i){
     var yr = hasReal ? fReal(r.x) : null;
-    var err = hasReal ? Math.abs(r.y - yr) : null;
+    // Solo calculamos el error si hay función real y no es la fila inicial (i > 0)
+    var errDisplay = (hasReal && i > 0) ? Math.abs(r.y - yr).toExponential(4) : "-";
     var last = i === rows.length-1;
     return '<tr'+(last?' class="row-final"':'')+'>'
       +'<td>'+r.n+'</td>'
@@ -4154,7 +4158,7 @@ function edoTableRK4(rows, fReal){
       +'<td>'+r.k3.toFixed(6)+'</td>'
       +'<td>'+r.k4.toFixed(6)+'</td>'
       +'<td>'+r.y1.toFixed(6)+'</td>'
-      +(hasReal?'<td>'+yr.toFixed(6)+'</td><td>'+err.toExponential(4)+'</td>':'')
+      +(hasReal?'<td>'+(yr!==null?yr.toFixed(6):'-')+'</td><td>'+errDisplay+'</td>':'')
       +'</tr>';
   }).join('');
   return head + body + '</tbody></table></div>';
