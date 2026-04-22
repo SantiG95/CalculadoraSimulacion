@@ -1310,7 +1310,7 @@
               <input id="mc-i1-err" type="number" value="0.01" step="any" min="0.000001"/>
             </div>
           </div>
-          <div class="fn-hint">Muestra piloto de 1000 puntos → estima σ → calcula N necesario → ejecuta integración con ese N.</div>
+          <div class="fn-hint">Muestra piloto de 1000 puntos → estima σ → calcula N necesario → ejecuta integración con ese N.<br>Soporta integrales impropias: usá <strong>Infinity</strong> o <strong>-Infinity</strong> como límites (ej: a=0, b=Infinity para ∫₀^∞).</div>
           <div style="display:flex;gap:10px;margin-top:14px">
             <button class="btn-primary" onclick="mcCalcIntegral1()">Calcular</button>
             <button class="btn-ghost" onclick="mcLimpiar()">Limpiar</button>
@@ -1328,12 +1328,7 @@
               <input id="mc-i2-fn" type="text" value="Math.sqrt(x)" placeholder="ej: Math.sqrt(x)" oninput="validateFn('mc-i2-fn','mc-i2-fn-status')"/>
               <span class="fn-status" id="mc-i2-fn-status" style="color:var(--green)">OK</span>
             </div>
-            <div class="fn-hint">Alias: sin(x) · cos(x) · exp(x) · log(x) · sqrt(x) · PI · E · x**2</div>
-          </div>
-          <div class="grid-4">
-            <div class="field-group">
-              <label>a — límite inferior</label>
-              <input id="mc-i2-a" type="text" value="0" placeholder="ej: 0, -PI"/>
+            <div class="fn-hint">Alias: sin(x) · cos(x) · exp(x) · log(x) · sqrt(x) · PI · E · x**2<br>Soporta integrales impropias: usá <strong>Infinity</strong> o <strong>-Infinity</strong> como límites.</div>
             </div>
             <div class="field-group">
               <label>b — límite superior</label>
@@ -3522,6 +3517,94 @@ function mcCalcPi(){
     '<div class="legend-item"><div class="legend-line" style="background:#4ade80"></div>Círculo r=1</div>';
 }
 
+/* ─── Utilidad: muestreo Monte Carlo con soporte a integrales impropias ─── */
+// Detecta tipo de intervalo: finito, semi-infinito o doblemente infinito
+// y aplica la transformación de variable adecuada para mapear a (0,1).
+// Devuelve { sample(n) → Float64Array de valores f transformados, jacobiano ya incluido,
+//            tipo, aEfec, bEfec (límites efectivos para mostrar) }
+function mcImproperSetup(f, a, b) {
+  var INF = Infinity;
+  var aInf = !isFinite(a), bInf = !isFinite(b);
+
+  // Función de muestreo que devuelve f(x)*|dx/dt| evaluada en t ∈ (0,1)
+  // y un generador de t uniforme en (0,1)
+  var sampler;
+
+  if (!aInf && !bInf) {
+    // Caso estándar: intervalo finito [a, b]
+    sampler = function(t) {
+      var x = a + (b - a) * t;
+      return f(x); // jacobiano = (b-a) aplicado afuera
+    };
+    return { sampler: sampler, tipo: 'finito', escala: b - a };
+
+  } else if (!aInf && bInf) {
+    // [a, +∞): x = a + t/(1-t), dx/dt = 1/(1-t)²
+    sampler = function(t) {
+      if (t >= 1) return 0;
+      var x = a + t / (1 - t);
+      var jac = 1 / ((1 - t) * (1 - t));
+      var v = f(x) * jac;
+      return isFinite(v) ? v : 0;
+    };
+    return { sampler: sampler, tipo: 'semi-inf-der', escala: 1 };
+
+  } else if (aInf && !bInf) {
+    // (-∞, b]: x = b - t/(1-t), dx/dt = 1/(1-t)²  (espejo)
+    sampler = function(t) {
+      if (t >= 1) return 0;
+      var x = b - t / (1 - t);
+      var jac = 1 / ((1 - t) * (1 - t));
+      var v = f(x) * jac;
+      return isFinite(v) ? v : 0;
+    };
+    return { sampler: sampler, tipo: 'semi-inf-izq', escala: 1 };
+
+  } else {
+    // (-∞, +∞): x = t/(1-t²), dx/dt = (1+t²)/(1-t²)²  — mapea (-1,1) → (-∞,+∞)
+    // Usamos t ∈ (-1,1) via s ∈ (0,1): t = 2s - 1
+    sampler = function(s) {
+      var t = 2 * s - 1;
+      if (Math.abs(t) >= 1) return 0;
+      var t2 = t * t;
+      var x = t / (1 - t2);
+      var jac = 2 * (1 + t2) / ((1 - t2) * (1 - t2));
+      var v = f(x) * jac;
+      return isFinite(v) ? v : 0;
+    };
+    return { sampler: sampler, tipo: 'biinf', escala: 1 };
+  }
+}
+
+function mcSampleImproper(setup, f, a, b, n) {
+  // Genera n valores muestreados con transformación de variable
+  var aInf = !isFinite(a), bInf = !isFinite(b);
+  var finito = !aInf && !bInf;
+  var vals = new Float64Array(n);
+  for (var i = 0; i < n; i++) {
+    var t = randomUniform(0, 1);
+    var v = setup.sampler(t);
+    // Para el caso finito la escala se aplica afuera; para infinitos está en el jacobiano
+    vals[i] = finito ? v : v;
+  }
+  return vals;
+}
+
+function mcIntegralFromVals(vals, escala, finito) {
+  // Calcula integral, varianza, sigma solo de valores finitos
+  var n = vals.length;
+  var sum = 0, count = 0;
+  for (var i = 0; i < n; i++) { if (isFinite(vals[i])) { sum += vals[i]; count++; } }
+  if (count === 0) return null;
+  var mean = sum / count;
+  var integral = finito ? escala * mean : mean;
+  var varSum = 0;
+  for (var i = 0; i < n; i++) { if (isFinite(vals[i])) varSum += (vals[i] - mean) * (vals[i] - mean); }
+  var sigma = count > 1 ? Math.sqrt(varSum / (count - 1)) : 0;
+  var escalaEfec = finito ? escala : 1;
+  return { integral: integral, mean: mean, sigma: sigma, escalaEfec: escalaEfec, count: count };
+}
+
 /* ─── 2. INTEGRAL CON N CALCULADO ─── */
 function mcCalcIntegral1(){
   mcHideErr();
@@ -3532,43 +3615,57 @@ function mcCalcIntegral1(){
   var b=evalLimit(document.getElementById('mc-i1-b').value);
   var conf=parseFloat(document.getElementById('mc-i1-conf').value);
   var errMax=parseFloat(document.getElementById('mc-i1-err').value);
-  if(isNaN(a)||isNaN(b)||a>=b){ mcShowErr('Verificá que a < b.'); return; }
+
+  // Aceptar integrales impropias: solo verificar que a < b (o al menos que no sean iguales)
+  if(isNaN(a)||isNaN(b)){ mcShowErr('Verificá los límites a y b (podés usar Infinity, -Infinity, PI, etc.).'); return; }
+  if(a>=b){ mcShowErr('El límite inferior a debe ser menor que b.'); return; }
   if(isNaN(errMax)||errMax<=0){ mcShowErr('Error máximo debe ser positivo.'); return; }
-  var f; try{ f=parseF(fnStr); f(a); }catch(e){ mcShowErr('f(x) inválida: '+e.message); return; }
+  var f; try{ f=parseF(fnStr); }catch(e){ mcShowErr('f(x) inválida: '+e.message); return; }
+
+  var aInf=!isFinite(a), bInf=!isFinite(b), finito=!aInf&&!bInf;
+  var setup=mcImproperSetup(f, a, b);
+
+  // Tipo de integral para mostrar en resultados
+  var tipoLabel = finito ? 'Integral propia' :
+    (aInf && bInf ? 'Integral impropia (−∞, +∞)' :
+     aInf ? 'Integral impropia (−∞, b]' : 'Integral impropia [a, +∞)');
 
   // Muestra piloto
   var nP=1000;
-  var yPiloto=[]; for(var i=0;i<nP;i++) yPiloto.push(f(randomUniform(a,b)));
-  var meanP=yPiloto.reduce(function(s,v){return s+v;},0)/nP;
-  var varP=yPiloto.reduce(function(s,v){return s+(v-meanP)*(v-meanP);},0)/(nP-1);
-  var sigmaEst=Math.sqrt(varP);
+  var yPiloto=mcSampleImproper(setup, f, a, b, nP);
+  var resP=mcIntegralFromVals(yPiloto, setup.escala, finito);
+  if(!resP){ mcShowErr('f(x) devuelve valores inválidos en todo el intervalo. Revisá la función.'); return; }
+  var sigmaEst=resP.sigma;
 
   var z=zConf(conf);
-  var n=Math.ceil(Math.pow((z*sigmaEst*(b-a))/errMax,2));
+  // Para impropias: escala=1 ya está en el jacobiano; N se calcula igual pero sin escala extra
+  var escalaErr=finito?(b-a):1;
+  var n=Math.ceil(Math.pow((z*sigmaEst*escalaErr)/errMax,2));
   n=Math.max(n,100);
   if(n>5000000){ mcShowErr('N calculado ('+n+') es demasiado grande. Aumentá el error máximo o reducí la confianza.'); return; }
 
   // Integración con N calculado
-  var vals=[]; for(var i=0;i<n;i++) vals.push(f(randomUniform(a,b)));
-  var mean=vals.reduce(function(s,v){return s+v;},0)/n;
-  var integral=(b-a)*mean;
-  var varY=vals.reduce(function(s,v){return s+(v-mean)*(v-mean);},0)/(n-1);
-  var sigma=Math.sqrt(varY);
-  var errorEst=z*sigma*(b-a)/Math.sqrt(n);
+  var valsN=mcSampleImproper(setup, f, a, b, n);
+  var res=mcIntegralFromVals(valsN, setup.escala, finito);
+  if(!res){ mcShowErr('f(x) devuelve valores inválidos en el muestreo principal.'); return; }
+  var integral=res.integral, sigma=res.sigma;
+  var errorEst=z*sigma*escalaErr/Math.sqrt(res.count);
 
   var metrics=
     mcMCard('∫f(x)dx ≈', integral.toFixed(8), 'ok')+
-    mcMCard('N calculado', n, '')+
+    mcMCard('Tipo', tipoLabel, '')+
+    mcMCard('N calculado', res.count, '')+
     mcMCard('σ estimada', sigmaEst.toFixed(6), '')+
     mcMCard('Error estimado', errorEst.toFixed(8), 'warn')+
-    mcMCard('IC ('+Math.round(conf*100)+'%)', '['+((b-a)*mean-errorEst).toFixed(6)+', '+((b-a)*mean+errorEst).toFixed(6)+']', '')+
+    mcMCard('IC ('+Math.round(conf*100)+'%)', '['+(integral-errorEst).toFixed(6)+', '+(integral+errorEst).toFixed(6)+']', '')+
     mcMCard('z ('+Math.round(conf*100)+'%)', z, '');
+  if(res.count < n) metrics += mcMCard('Puntos válidos', res.count+'/'+n, 'warn');
   mcShowResults(metrics, true, false);
   document.getElementById('mc-chart-title').textContent='Distribución de f(x) — muestra Monte Carlo';
 
   var ctx=document.getElementById('mc-chart').getContext('2d');
-  // Histograma de vals (muestra reducida)
-  var samp=vals.slice(0,Math.min(vals.length,10000));
+  // Histograma de vals (muestra reducida, solo finitos)
+  var samp=Array.from(valsN).filter(isFinite).slice(0,10000);
   var minV=Math.min.apply(null,samp), maxV=Math.max.apply(null,samp);
   var nbins=40, bw=(maxV-minV)/nbins, bins=new Array(nbins).fill(0);
   samp.forEach(function(v){ var bi=Math.min(Math.floor((v-minV)/bw),nbins-1); bins[bi]++; });
@@ -3599,71 +3696,103 @@ function mcCalcIntegral2(){
   var b=evalLimit(document.getElementById('mc-i2-b').value);
   var n=parseInt(document.getElementById('mc-i2-n').value);
   var conf=parseFloat(document.getElementById('mc-i2-conf').value);
-  if(isNaN(a)||isNaN(b)||a>=b){ mcShowErr('Verificá que a < b.'); return; }
+  if(isNaN(a)||isNaN(b)){ mcShowErr('Verificá los límites a y b (podés usar Infinity, -Infinity, PI, etc.).'); return; }
+  if(a>=b){ mcShowErr('El límite inferior a debe ser menor que b.'); return; }
   if(isNaN(n)||n<100){ mcShowErr('N debe ser al menos 100.'); return; }
-  var f; try{ f=parseF(fnStr); f(a); }catch(e){ mcShowErr('f(x) inválida: '+e.message); return; }
+  var f; try{ f=parseF(fnStr); }catch(e){ mcShowErr('f(x) inválida: '+e.message); return; }
 
-  // Generamos todos los x primero en un bloque — replica numpy.random.uniform() en bloques
-  var xVals=new Float64Array(n);
-  for(var i=0;i<n;i++) xVals[i]=randomUniform(a,b);
-  var vals=[]; for(var i=0;i<n;i++) vals.push(f(xVals[i]));
-  var mean=vals.reduce(function(s,v){return s+v;},0)/n;
-  var integral=(b-a)*mean;
-  var varY=vals.reduce(function(s,v){return s+(v-mean)*(v-mean);},0)/(n-1);
-  var sigma=Math.sqrt(varY);
+  var aInf=!isFinite(a), bInf=!isFinite(b), finito=!aInf&&!bInf;
+  var setup=mcImproperSetup(f, a, b);
+
+  var tipoLabel = finito ? 'Integral propia' :
+    (aInf && bInf ? 'Integral impropia (−∞, +∞)' :
+     aInf ? 'Integral impropia (−∞, b]' : 'Integral impropia [a, +∞)');
+
+  var valsArr=mcSampleImproper(setup, f, a, b, n);
+  var res=mcIntegralFromVals(valsArr, setup.escala, finito);
+  if(!res){ mcShowErr('f(x) devuelve valores inválidos en todo el intervalo.'); return; }
+
+  var integral=res.integral, sigma=res.sigma, mean=res.mean;
   var z=zConf(conf);
-  var errorEst=z*sigma*(b-a)/Math.sqrt(n);
-  var desv=sigma*(b-a)/Math.sqrt(n);
+  var escalaErr=finito?(b-a):1;
+  var errorEst=z*sigma*escalaErr/Math.sqrt(res.count);
+  var desv=sigma*escalaErr/Math.sqrt(res.count);
 
   var metrics=
     mcMCard('∫f(x)dx ≈', integral.toFixed(8), 'ok')+
-    mcMCard('N', n, '')+
+    mcMCard('Tipo', tipoLabel, '')+
+    mcMCard('N', res.count, '')+
     mcMCard('Media f(x)', mean.toFixed(8), '')+
     mcMCard('Desv. estándar', desv.toFixed(8), '')+
-    mcMCard('Error estándar', (sigma/Math.sqrt(n)).toFixed(8), 'warn')+
+    mcMCard('Error estándar', (sigma/Math.sqrt(res.count)).toFixed(8), 'warn')+
     mcMCard('IC ('+Math.round(conf*100)+'%)', '['+(integral-errorEst).toFixed(6)+', '+(integral+errorEst).toFixed(6)+']', '');
+  if(res.count < n) metrics += mcMCard('Puntos válidos', res.count+'/'+n, 'warn');
   mcShowResults(metrics, true, false);
-  document.getElementById('mc-chart-title').textContent='f(x) vs puntos muestreados';
+  document.getElementById('mc-chart-title').textContent = finito ? 'f(x) vs puntos muestreados' : 'Distribución de valores muestreados (integral impropia)';
 
-  // Gráfico: función y puntos de muestra — reutilizamos xVals ya generados (sin consumir más MT)
   var ctx=document.getElementById('mc-chart').getContext('2d');
-  var nSmooth=200, sx=[], sy=[];
-  for(var i=0;i<=nSmooth;i++){ var xi=a+(b-a)*i/nSmooth; sx.push(xi); sy.push(f(xi)); }
-  var maxPts=Math.min(n,800);
-  var scX=[],scY=[];
-  for(var i=0;i<maxPts;i++){
-    scX.push(xVals[i]); scY.push(f(xVals[i]));
+  if(finito){
+    // Gráfico de función con puntos (solo integrales propias)
+    var nSmooth=200, sx=[], sy=[];
+    for(var i=0;i<=nSmooth;i++){ var xi=a+(b-a)*i/nSmooth; sx.push(xi); var fv=f(xi); sy.push(isFinite(fv)?fv:null); }
+    // Generar puntos de muestra de x para graficar (en espacio x, no t)
+    var maxPts=Math.min(n,800), scX=[], scY=[];
+    for(var i=0;i<maxPts;i++){
+      var t=randomUniform(0,1);
+      var xi2=a+(b-a)*t;
+      var fv2=f(xi2);
+      if(isFinite(fv2)){ scX.push(xi2); scY.push(fv2); }
+    }
+    mcChart=new Chart(ctx,{
+      type:'line',
+      data:{
+        labels:sx.map(function(v){return v.toFixed(4);}),
+        datasets:[
+          {label:'f(x)',data:sy,borderColor:'#7c6af7',borderWidth:2,pointRadius:0,tension:0.4,fill:false},
+          {label:'Área',data:sy.map(function(v){return v;}),
+           borderColor:'transparent',backgroundColor:'rgba(124,106,247,0.15)',fill:'origin',pointRadius:0},
+          {label:'Muestras',data:(function(){
+             var pts=new Array(sx.length).fill(null);
+             scX.forEach(function(xi,k){
+               var closest=0,minD=1/0;
+               for(var j=0;j<sx.length;j++){var d=Math.abs(sx[j]-xi);if(d<minD){minD=d;closest=j;}}
+               pts[closest]=scY[k];
+             });
+             return pts;
+           })(),type:'scatter',backgroundColor:'rgba(74,222,128,0.6)',pointRadius:3,showLine:false}
+        ]
+      },
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{
+          x:{title:{display:true,text:'x',color:'#5a6075'},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075',maxTicksLimit:10}},
+          y:{title:{display:true,text:'f(x)',color:'#5a6075'},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075'}}
+        }}
+    });
+    document.getElementById('mc-legend').innerHTML=
+      '<div class="legend-item"><div class="legend-line" style="background:#7c6af7"></div>f(x)</div>'+
+      '<div class="legend-item"><div class="legend-dot" style="background:rgba(124,106,247,0.4);border-radius:0;width:18px;height:10px"></div>Área</div>'+
+      '<div class="legend-item"><div class="legend-dot" style="background:rgba(74,222,128,0.7)"></div>Puntos muestreados</div>';
+  } else {
+    // Histograma de valores transformados (integrales impropias)
+    var samp2=Array.from(valsArr).filter(isFinite).slice(0,10000);
+    var minV2=Math.min.apply(null,samp2), maxV2=Math.max.apply(null,samp2);
+    var nbins2=40, bw2=(maxV2-minV2)/nbins2||1, bins2=new Array(nbins2).fill(0);
+    samp2.forEach(function(v){ var bi=Math.min(Math.floor((v-minV2)/bw2),nbins2-1); bins2[bi]++; });
+    var labels2=bins2.map(function(_,i){return (minV2+i*bw2).toFixed(4);});
+    mcChart=new Chart(ctx,{
+      type:'bar',
+      data:{labels:labels2,datasets:[{label:'f(x) transformada',data:bins2,
+        backgroundColor:'rgba(124,106,247,0.5)',borderColor:'rgba(124,106,247,0.8)',borderWidth:1}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+        scales:{
+          x:{title:{display:true,text:'f(t)·|dx/dt|',color:'#5a6075'},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075',maxTicksLimit:10}},
+          y:{title:{display:true,text:'Frecuencia',color:'#5a6075'},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075'}}
+        }}
+    });
+    document.getElementById('mc-legend').innerHTML=
+      '<div class="legend-item"><div class="legend-dot" style="background:rgba(124,106,247,0.7)"></div>Distribución de f(x)·jacobiano (variable transformada)</div>';
   }
-  mcChart=new Chart(ctx,{
-    type:'line',
-    data:{
-      labels:sx.map(function(v){return v.toFixed(4);}),
-      datasets:[
-        {label:'f(x)',data:sy,borderColor:'#7c6af7',borderWidth:2,pointRadius:0,tension:0.4,fill:false},
-        {label:'Área',data:sy.map(function(v,i){return sx[i]>=a&&sx[i]<=b?v:null;}),
-         borderColor:'transparent',backgroundColor:'rgba(124,106,247,0.15)',fill:'origin',pointRadius:0},
-        {label:'Muestras',data:(function(){
-           var pts=new Array(sx.length).fill(null);
-           scX.forEach(function(xi,k){
-             var closest=0,minD=Infinity;
-             for(var j=0;j<sx.length;j++){var d=Math.abs(sx[j]-xi);if(d<minD){minD=d;closest=j;}}
-             pts[closest]=scY[k];
-           });
-           return pts;
-         })(),type:'scatter',backgroundColor:'rgba(74,222,128,0.6)',pointRadius:3,showLine:false}
-      ]
-    },
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
-      scales:{
-        x:{title:{display:true,text:'x',color:'#5a6075'},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075',maxTicksLimit:10}},
-        y:{title:{display:true,text:'f(x)',color:'#5a6075'},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a6075'}}
-      }}
-  });
-  document.getElementById('mc-legend').innerHTML=
-    '<div class="legend-item"><div class="legend-line" style="background:#7c6af7"></div>f(x)</div>'+
-    '<div class="legend-item"><div class="legend-dot" style="background:rgba(124,106,247,0.4);border-radius:0;width:18px;height:10px"></div>Área</div>'+
-    '<div class="legend-item"><div class="legend-dot" style="background:rgba(74,222,128,0.7)"></div>Puntos muestreados</div>';
 }
 
 /* ─── 4. INTEGRAL DOBLE ─── */
