@@ -1,61 +1,8 @@
 import math
 import matplotlib.pyplot as plt
 
-def metodo_punto_fijo(funcion, x0, iteraciones, tolerancia=1e-4):
-    print(f"{'n':<5} | {'Xn':<15} | {'X{n+1}':<15} | {'Error':<15}")
-    print("-" * 58)
-    
-    xn = x0
-    raiz_encontrada = None
-
-    for n in range(iteraciones):
-        xSiguiente = funcion(xn)
-        error = abs(xSiguiente - xn)
-        
-        print(f"{n:<5} | {xn:<15.8f} | {xSiguiente:<15.8f} | {error:<15.8f}")
-        
-        if error < tolerancia:
-            raiz_encontrada = xSiguiente
-            print(f"\nConvergencia alcanzada en la iteración {n}.")
-            break
-            
-        xn = xSiguiente
-        
-    if raiz_encontrada is None:
-         print(f"\nEl método no alcanzó la tolerancia en {iteraciones} iteraciones.")
-         
-    return xSiguiente
-
-def metodo_punto_fijo_con_rango(funcion, x0, iteraciones, rangoInferior, rangoSuperior, tolerancia=1e-4):
-    print(f"{'n':<5} | {'Xn':<15} | {'X{n+1}':<15} | {'Error':<15}")
-    print("-" * 58)
-    
-    xn = x0
-    raiz_encontrada = None
-
-    for n in range(iteraciones):
-        if not (rangoInferior <= xn <= rangoSuperior):
-            print(f"\nAlerta: Xn ({xn:.4f}) salió del intervalo [{rangoInferior}, {rangoSuperior}]")
-            break
-            
-        xSiguiente = funcion(xn)
-        error = abs(xSiguiente - xn)
-        
-        print(f"{n:<5} | {xn:<15.8f} | {xSiguiente:<15.8f} | {error:<15.8f}")
-        
-        if error < tolerancia:
-            raiz_encontrada = xSiguiente
-            print(f"\nConvergencia alcanzada en la iteración {n}.")
-            break
-            
-        xn = xSiguiente
-
-    if raiz_encontrada is None and (rangoInferior <= xn <= rangoSuperior):
-         print(f"\nEl método no alcanzó la tolerancia en {iteraciones} iteraciones.")
-         
-    return xSiguiente
-
-def metodo_punto_fijo_con_grafico(funcion, x0, iteraciones, hacerGrafico=True, tolerancia=1e-4):
+def punto_fijo(funcion, x0, iteraciones, hacerGrafico=True, tolerancia=1e-4):
+    'Realiza el método de punto fijo para encontrar una raíz de la función dada.'
     print(f"{'n':<5} | {'Xn':<15} | {'X{n+1}':<15} | {'Error':<15}")
     print("-" * 58)
     
@@ -88,6 +35,36 @@ def metodo_punto_fijo_con_grafico(funcion, x0, iteraciones, hacerGrafico=True, t
     if hacerGrafico:
         realizar_grafico(valores_n, valores_x, xSiguiente)
         
+    return xSiguiente
+
+def punto_fijo_con_rango(funcion, rangoInferior, rangoSuperior ,x0 , iteraciones = 20, tolerancia=1e-4):
+    'Realiza el método de punto fijo con un rango específico para las iteraciones.'
+    print(f"{'n':<5} | {'Xn':<15} | {'X{n+1}':<15} | {'Error':<15}")
+    print("-" * 58)
+    
+    xn = x0
+    raiz_encontrada = None
+
+    for n in range(iteraciones):
+        if not (rangoInferior <= xn <= rangoSuperior):
+            print(f"\nAlerta: Xn ({xn:.4f}) salió del intervalo [{rangoInferior}, {rangoSuperior}]")
+            break
+            
+        xSiguiente = funcion(xn)
+        error = abs(xSiguiente - xn)
+        
+        print(f"{n:<5} | {xn:<15.8f} | {xSiguiente:<15.8f} | {error:<15.8f}")
+        
+        if error < tolerancia:
+            raiz_encontrada = xSiguiente
+            print(f"\nConvergencia alcanzada en la iteración {n}.")
+            break
+            
+        xn = xSiguiente
+
+    if raiz_encontrada is None and (rangoInferior <= xn <= rangoSuperior):
+         print(f"\nEl método no alcanzó la tolerancia en {iteraciones} iteraciones.")
+         
     return xSiguiente
 
 def realizar_grafico(valores_n, valores_x, x_final):

@@ -1,7 +1,7 @@
 import numpy as np
 from tabulate import tabulate
 # Importamos la segunda derivada desde tu paquete
-from .Derivada import segunda_derivada 
+from .Derivada import segunda_derivada_central
 from .ErrorRelativoPorcentual import error_relativo_porcentual
 
 def trapecioCompuesta(funcion, inicio, fin, n):
@@ -16,8 +16,9 @@ def trapecioCompuesta(funcion, inicio, fin, n):
     integral = (h / 2) * (y[0] + 2 * np.sum(y[1:n]) + y[-1])
     # --- CÁLCULO DEL ERROR SEGÚN TU IMAGEN ---
     punto_medio = (inicio + fin) / 2
+    h_derivada = 1e-5  # Paso pequeño para calcular la derivada
     # Llamamos a tu función para la 2da derivada
-    f2_val = segunda_derivada(funcion, punto_medio)
+    f2_val = segunda_derivada_central(funcion, punto_medio, h_derivada)
     # Aplicamos la fórmula: E = - [ (b-a)^3 / (12 * n^2) ] * f''(xi)
     error_truncamiento = - ((fin - inicio)**3 / (12 * (n**2))) * f2_val
     # ------------------------------------------

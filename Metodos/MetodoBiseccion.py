@@ -95,4 +95,4 @@ def graficar_biseccion(f, a, b, raiz):
     plt.show()
 
 
-biseccion(lambda x: math.e**(x)-2-x, 1,2)
+#biseccion(lambda x: math.e**(x)-2-x, 1,2)

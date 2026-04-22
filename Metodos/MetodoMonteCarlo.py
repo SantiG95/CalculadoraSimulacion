@@ -282,15 +282,15 @@ nivel_confianza = 0.90
 cantidad_puntos = 15000 # Aquí nosotros definimos el N directamente
 
 # 3. Llamamos al método (asumiendo que estás en el mismo script o lo importaste)
-resultado, sigma = integral_monte_carlo(
-    f=mi_funcion,
-    a=limite_inferior,
-    b=limite_superior,
-    confianza=nivel_confianza,
-    n=cantidad_puntos,
-    hacerGrafico=True, # Levanta el gráfico de Matplotlib
-    seed=29            # Fijamos la semilla para que el resultado sea reproducible
-)
+#resultado, sigma = integral_monte_carlo(
+#    f=mi_funcion,
+#    a=limite_inferior,
+#    b=limite_superior,
+#    confianza=nivel_confianza,
+#    n=cantidad_puntos,
+#    hacerGrafico=True, # Levanta el gráfico de Matplotlib
+#    seed=29            # Fijamos la semilla para que el resultado sea reproducible
+#)
 
 #resultado = montecarlo_error_maximo(
 #    f = lambda x: np.exp(-x), # Tu función f(x)
