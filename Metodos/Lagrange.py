@@ -40,7 +40,7 @@ def cota_error_lagrange(x, x_puntos, max_derivada):
     factor = np.prod([x - xi for xi in x_puntos])
     return abs((max_derivada / np.math.factorial(n)) * factor)
 
-def lagrange(x_puntos, y_puntos, x_eval=None, f=None, max_derivada=None, desborde=False):
+def lagrange(x_puntos, y_puntos, x_eval=None, f=None, desborde=False, max_derivada=None):
     """
     Función principal para interpolar, evaluar y graficar.
     """

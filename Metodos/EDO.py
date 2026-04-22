@@ -98,42 +98,37 @@ def resolver_edo_rk4(f_edo, f_real, x0, y0, h, pasos):
 # ==========================================
 # 4. GRÁFICOS: CAMPOS DIRECTORES Y SOLUCIÓN
 # ==========================================
-def graficar_campo_y_solucion(f_edo, f_real, x0, y0, x_final, h):
-    """
-    Dibuja el campo de direcciones y superpone la curva de la solución exacta.
-    Resuelve los incisos C (gráficos) y D (campos directores).
-    """
-    # 1. Crear el campo de isoclinas (Campo Director)
-    # Definimos los límites del gráfico en base a los puntos iniciales y finales
+def graficar_campo_y_solucion(f_edo, f_real, x0, y0, x_final, h, titulo="Campo Director y Solución Exacta"):
     x_val = np.linspace(x0 - 0.5, x_final + 0.5, 20)
     y_val = np.linspace(y0 - 2, y0 + 5, 20)
     X, Y = np.meshgrid(x_val, y_val)
     
-    # Calculamos las pendientes en cada punto de la grilla
-    U = 1 # Avance unitario en x
-    V = f_edo(X, Y) # Avance en y dado por la EDO
+    U = 1 
+    V = f_edo(X, Y) 
     
-    # Normalizamos para que las flechas tengan el mismo largo
     N = np.sqrt(U**2 + V**2)
     U2, V2 = U/N, V/N
     
     plt.figure(figsize=(10, 6))
     plt.quiver(X, Y, U2, V2, color='lightgray', angles='xy')
     
-    # 2. Superponer la solución exacta
     x_exacta = np.linspace(x0, x_final, 100)
     y_exacta = [f_real(xi) for xi in x_exacta]
     
-    plt.plot(x_exacta, y_exacta, 'r-', linewidth=2, label='Solución Exacta Analítica')
+    # Manejo de casos como la Ecuación de Riccati (Ejercicio 4) sin solución analítica
+    if not np.isnan(y_exacta[0]):
+        plt.plot(x_exacta, y_exacta, 'r-', linewidth=2, label='Solución Exacta Analítica')
+    else:
+        plt.plot([], [], 'r-', label='(Sin Solución Analítica - Riccati)')
+        
     plt.plot(x0, y0, 'bo', label='Condición Inicial (x0, y0)')
     
-    plt.title("Campo Director y Solución Exacta")
-    plt.xlabel("x (o t)")
+    plt.title(titulo)
+    plt.xlabel("t")
     plt.ylabel("y")
     plt.grid(True)
     plt.legend()
     plt.show()
-
 
 # ==========================================
 # DEFINICIÓN DEL EJERCICIO
@@ -155,13 +150,13 @@ x_final = x_inicial + (tamano_paso * numero_pasos)
 # EJECUCIÓN Y COMPARACIÓN
 # ==========================================
 print("=== EJECUCIÓN: MÉTODO DE EULER TRADICIONAL ===")
-resolver_edo_euler(mi_edo, solucion_real, x_inicial, y_inicial, tamano_paso, numero_pasos)
+#resolver_edo_euler(mi_edo, solucion_real, x_inicial, y_inicial, tamano_paso, numero_pasos)
 
 print("\n\n=== EJECUCIÓN: MÉTODO DE EULER MEJORADO ===")
-resolver_edo_euler_mejorado(mi_edo, solucion_real, x_inicial, y_inicial, tamano_paso, numero_pasos)
+#resolver_edo_euler_mejorado(mi_edo, solucion_real, x_inicial, y_inicial, tamano_paso, numero_pasos)
 
 print("\n\n=== EJECUCIÓN: MÉTODO DE RUNGE-KUTTA 4 ===")
-resolver_edo_rk4(mi_edo, solucion_real, x_inicial, y_inicial, tamano_paso, numero_pasos)
+#resolver_edo_rk4(mi_edo, solucion_real, x_inicial, y_inicial, tamano_paso, numero_pasos)
 
 print("\n=== GENERANDO GRÁFICO ===")
-graficar_campo_y_solucion(mi_edo, solucion_real, x_inicial, y_inicial, x_final, tamano_paso)
+#graficar_campo_y_solucion(mi_edo, solucion_real, x_inicial, y_inicial, x_final, tamano_paso)

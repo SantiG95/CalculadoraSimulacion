@@ -1,0 +1,75 @@
+import numpy as np
+from Metodos import MetodoMonteCarlo as mmc # Asumiendo tu estructura de carpetas
+
+# =============================================================================
+# DEFINICIÓN DE FUNCIONES
+# =============================================================================
+
+# Seed
+semilla = 42
+
+def funcion(x): 
+    return np.exp(-x**2)
+
+# Error maximo e integral 
+a=0
+b=1
+error_max=0.01
+
+# Integral Doble
+def funcionDoble(x, y): 
+    return np.exp(x + y)
+
+x_min=0
+x_max=2
+y_min=1
+y_max=3
+n=50000
+
+confianza=0.997 #Confianzas aceptadas: 0.90, 0.95, 0.99, 0.997, 0.999
+
+
+# Ejercicio 10 (Rechazo entre curvas): f(x)=x^2, g(x)=sqrt(x)
+def f10_techo(x): 
+    return np.sqrt(x) # En [0,1], raiz de x va por arriba
+def f10_piso(x): 
+    return x**2        # En [0,1], x^2 va por abajo
+
+
+# =============================================================================
+# EJECUCIÓN DE LA GUÍA
+# =============================================================================
+
+if __name__ == "__main__":
+
+    # -------------------------------------------------------------------------
+    #  Aproximación de PI
+    mmc.montecarlo_rechazo_pi(n=10000, hacerGrafico=True, seed=semilla)
+
+    # -------------------------------------------------------------------------
+    # Error Máximo Permitido
+    mmc.montecarlo_error_maximo(funcion, a, b, confianza, error_max, seed=semilla)
+
+    # -------------------------------------------------------------------------
+    # Integral Simple y Error Estándar
+    mmc.integral_monte_carlo(funcion, a, b, confianza, n, hacerGrafico=False, seed=semilla)
+
+    # -------------------------------------------------------------------------
+    # Integral Doble
+    mmc.integral_doble_monte_carlo(funcionDoble, x_min, x_max, y_min, y_max, confianza, n, seed=semilla)
+
+    # -------------------------------------------------------------------------
+    # Área entre curvas (Rechazo Gráfico)
+    # El rango en y para estas funciones en [0,1] va de 0 a 1
+    #mmc.montecarlo_rechazo_curvas(f10_techo, f10_piso, a=0, b=1, y_min=0, y_max=1, n=10000, hacerGrafico=True, seed=semilla)
+
+    # -------------------------------------------------------------------------
+    # EJERCICIO 11: Simulador Orbital
+    # Asumimos valores nominales para probar, ya que la guía da la consigna teórica
+    #mmc.simulador_orbital(dv_nominal=1000, sigma_dv=10, t_nominal=50, sigma_t=1, n=100000, seed=semilla)
+
+    # -------------------------------------------------------------------------
+    # Simulación Financiera (Opciones y VaR)
+    # Valores de prueba para validar el modelo (S0=precio actual, K=precio ejercicio, T=tiempo, r=tasa, sigma=volatilidad)
+    #mmc.simulador_opcion_europea(S0=100, K=105, T=1, r=0.05, sigma=0.2, n=100000, seed=semilla)
+
