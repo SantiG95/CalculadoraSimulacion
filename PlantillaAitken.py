@@ -6,6 +6,7 @@ from Metodos import MetodoAitken as ma
 # DEFINICIÓN DE LAS FUNCIONES g(x)
 # =============================================================================
 
+#Debe ser g(x)
 def funcion(x):
     return (math.pi / 2) * x**2 - 2
 

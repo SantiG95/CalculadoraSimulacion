@@ -10,12 +10,21 @@ def integral_monte_carlo(f, a, b, confianza, n=10000, hacerGrafico=True, seed=No
     # 1. Generación de puntos y evaluación
     x_aleatorios = np.random.uniform(a, b, n)
     y_evaluados = f(x_aleatorios)
-    # 2. Cálculos base
-    mean_f = np.mean(y_evaluados)
+    # 2. Manejo de indeterminaciones (NaN / Inf)
+    mascara_valida = np.isfinite(y_evaluados)
+    n_invalidos = n - np.sum(mascara_valida)
+    if n_invalidos > 0:
+        print(f"⚠ Se descartaron {n_invalidos} punto(s) no finitos (NaN/Inf) de {n} muestras.")
+    y_validos = y_evaluados[mascara_valida]
+    if len(y_validos) == 0:
+        raise ValueError("Todos los puntos evaluados son no finitos. Revisá la función o el intervalo.")
+    n_efectivo = len(y_validos)
+    # 3. Cálculos base (sobre puntos válidos)
+    mean_f = np.mean(y_validos)
     resultado = (b - a) * mean_f
-    # 3. Estadística (Sigma y Error Estándar)
-    sigma = np.std(y_evaluados, ddof=1) # Desviación estándar muestral
-    ee = sigma / np.sqrt(n) # Error Estándar 
+    # 4. Estadística (Sigma y Error Estándar)
+    sigma = np.std(y_validos, ddof=1) # Desviación estándar muestral
+    ee = sigma / np.sqrt(n_efectivo)  # Error Estándar (usa N efectivo)
     # 4. Intervalo de Confianza
     valores_z = {
         0.90: 1.645, 
@@ -30,10 +39,12 @@ def integral_monte_carlo(f, a, b, confianza, n=10000, hacerGrafico=True, seed=No
     ic_superior = resultado + margen_error
     # --- TABLA DE RESULTADOS ACTUALIZADA ---
     datos_resumen = [
-        ["Puntos (n)", n],
+        ["Puntos solicitados (n)", n],
+        ["Puntos válidos (n_ef)", n_efectivo],
+        ["Puntos descartados", n - n_efectivo],
         ["Promedio f(x)", f"{mean_f:.6f}"],
-        ["Desv. Estándar (σ)", f"{sigma:.6f}"], # Agregado a la tabla
-        ["Error Estándar (EE)", f"{ee:.6e}"], # Agregado a la tabla
+        ["Desv. Estándar (σ)", f"{sigma:.6f}"],
+        ["Error Estándar (EE)", f"{ee:.6e}"],
         ["Nivel de Confianza", f"{confianza*100}% (z={z})"],
         ["Margen de Error", f"{margen_error:.6e}"],
         ["IC (Intervalo)", f"[{ic_inferior:.6f}, {ic_superior:.6f}]"]
@@ -55,13 +66,22 @@ def integral_doble_monte_carlo(f, x_min, x_max, y_min, y_max, confianza, n=10000
     y_random = np.random.uniform(y_min, y_max, n)
     # 2. Evaluación de la función (alturas z)
     z_evaluados = f(x_random, y_random)
-    # 3. Cálculos de volumen (Área base * Promedio de alturas)
-    mean_z = np.mean(z_evaluados)
+    # 3. Manejo de indeterminaciones (NaN / Inf)
+    mascara_valida = np.isfinite(z_evaluados)
+    n_invalidos = n - np.sum(mascara_valida)
+    if n_invalidos > 0:
+        print(f"⚠ Se descartaron {n_invalidos} punto(s) no finitos (NaN/Inf) de {n} muestras.")
+    z_validos = z_evaluados[mascara_valida]
+    if len(z_validos) == 0:
+        raise ValueError("Todos los puntos evaluados son no finitos. Revisá la función o el intervalo.")
+    n_efectivo = len(z_validos)
+    # 4. Cálculos de volumen (Área base * Promedio de alturas válidas)
+    mean_z = np.mean(z_validos)
     area_base = (x_max - x_min) * (y_max - y_min)
     volumen_estimado = area_base * mean_z
-    # 4. Estadística Detallada
-    sigma = np.std(z_evaluados, ddof=1) # Desviación estándar de f(xi, yi)
-    ee = sigma / np.sqrt(n) # Error Estándar
+    # 5. Estadística Detallada
+    sigma = np.std(z_validos, ddof=1) # Desviación estándar de f(xi, yi)
+    ee = sigma / np.sqrt(n_efectivo)  # Error Estándar (usa N efectivo)
     # 5. Intervalo de Confianza (IC)
     valores_z = {
         0.90: 1.645, 
@@ -76,11 +96,13 @@ def integral_doble_monte_carlo(f, x_min, x_max, y_min, y_max, confianza, n=10000
     ic_inf, ic_sup = volumen_estimado - margen_error, volumen_estimado + margen_error
     # --- TABLA DE RESULTADOS ACTUALIZADA ---
     datos_tabla = [
-        ["Puntos (n)", n],
+        ["Puntos solicitados (n)", n],
+        ["Puntos válidos (n_ef)", n_efectivo],
+        ["Puntos descartados", n - n_efectivo],
         ["Área de la base", f"{area_base:.4f}"],
         ["Promedio f(x,y)", f"{mean_z:.6f}"],
-        ["Desv. Estándar (σ)", f"{sigma:.6f}"], # Mide dispersión de la superficie 
-        ["Error Estándar (EE)", f"{ee:.6e}"],   # Mide precisión de la media 
+        ["Desv. Estándar (σ)", f"{sigma:.6f}"],
+        ["Error Estándar (EE)", f"{ee:.6e}"],
         ["Confianza", f"{confianza*100}% (z={z_critico})"],
         ["IC (Intervalo)", f"[{ic_inf:.6f}, {ic_sup:.6f}]"]
     ]
